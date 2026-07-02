@@ -33,14 +33,16 @@ final class UpdateChecker {
         final String apkUrl;
         final String releasePageUrl;
         final String releaseNotes;
+        final String sha256;
 
         UpdateInfo(long versionCode, String versionName, String apkUrl,
-                   String releasePageUrl, String releaseNotes) {
+                   String releasePageUrl, String releaseNotes, String sha256) {
             this.versionCode = versionCode;
             this.versionName = versionName;
             this.apkUrl = apkUrl;
             this.releasePageUrl = releasePageUrl;
             this.releaseNotes = releaseNotes;
+            this.sha256 = sha256;
         }
 
         String downloadUrl() {
@@ -128,7 +130,8 @@ final class UpdateChecker {
                     object.getString("versionName"),
                     object.optString("apkUrl", ""),
                     object.optString("releasePageUrl", ""),
-                    object.optString("releaseNotes", ""));
+                    object.optString("releaseNotes", ""),
+                    object.optString("sha256", ""));
         } finally {
             connection.disconnect();
         }

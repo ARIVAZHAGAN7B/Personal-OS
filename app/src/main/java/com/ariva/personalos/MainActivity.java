@@ -22,6 +22,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.net.Uri;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -39,6 +40,7 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.Switch;
@@ -97,6 +99,7 @@ public class MainActivity extends Activity {
     private boolean showingExpenseTracker = false;
     private boolean showingAppSettings = false;
     private TextView updateStatusView;
+    private boolean updateInstallInProgress = false;
     private int currentPage = PAGE_DASHBOARD;
     private int currentMorePage = MORE_HOME;
     private String transactionFilterType = "all";
@@ -124,6 +127,12 @@ public class MainActivity extends Activity {
             return;
         }
         renderHome();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        resumePendingUpdate();
     }
 
     @Override
@@ -341,23 +350,125 @@ public class MainActivity extends Activity {
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Update available")
                 .setMessage("Version " + update.versionName + "\n\n" + notes)
-                .setPositiveButton("Download", (ignored, which) -> openUpdateDownload(update.downloadUrl()))
+                .setPositiveButton("Download", (ignored, which) -> downloadUpdate(update))
                 .setNegativeButton("Later", null)
                 .create();
         showDialog(dialog);
     }
 
-    private void openUpdateDownload(String url) {
-        Uri uri = Uri.parse(url);
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || TextUtils.isEmpty(uri.getHost())) {
-            toast("The update download URL is invalid.");
+    private void downloadUpdate(UpdateChecker.UpdateInfo update) {
+        LinearLayout progressContent = dialogForm();
+        TextView progressText = text("Downloading update...", 13, COLOR_MUTED, false);
+        ProgressBar progressBar = new ProgressBar(
+                this, null, android.R.attr.progressBarStyleHorizontal);
+        progressBar.setMax(100);
+        progressBar.setProgress(0);
+        progressContent.addView(progressText);
+        addSpaceTo(progressContent, 10);
+        progressContent.addView(progressBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(8)));
+
+        AlertDialog progressDialog = new AlertDialog.Builder(this)
+                .setTitle("PersonalOS " + update.versionName)
+                .setView(progressContent)
+                .create();
+        progressDialog.setCancelable(false);
+        showDialog(progressDialog);
+
+        InAppUpdateManager.download(this, update, new InAppUpdateManager.DownloadListener() {
+            @Override
+            public void onProgress(int percent) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                progressBar.setProgress(percent);
+                progressText.setText("Downloading update... " + percent + "%");
+            }
+
+            @Override
+            public void onComplete(File apk) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                progressDialog.dismiss();
+                getSharedPreferences(UpdateChecker.PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putString(InAppUpdateManager.PREF_PENDING_APK, apk.getAbsolutePath())
+                        .apply();
+                continueUpdateInstallation();
+            }
+
+            @Override
+            public void onError(String message) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                progressDialog.dismiss();
+                if (updateStatusView != null) {
+                    updateStatusView.setText(message);
+                }
+                toast(message);
+            }
+        });
+    }
+
+    private void continueUpdateInstallation() {
+        if (!InAppUpdateManager.canRequestInstalls(this)) {
+            AlertDialog permissionDialog = new AlertDialog.Builder(this)
+                    .setTitle("Allow app updates")
+                    .setMessage("Allow PersonalOS to install this verified update.")
+                    .setPositiveButton("Open settings", (ignored, which) -> {
+                        Intent intent = new Intent(
+                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    })
+                    .setNegativeButton("Later", null)
+                    .create();
+            showDialog(permissionDialog);
             return;
         }
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, uri));
-        } catch (Exception error) {
-            toast("No browser is available to download the update.");
+        resumePendingUpdate();
+    }
+
+    private void resumePendingUpdate() {
+        if (updateInstallInProgress || !InAppUpdateManager.canRequestInstalls(this)) {
+            return;
         }
+        SharedPreferences preferences = getSharedPreferences(UpdateChecker.PREFS, MODE_PRIVATE);
+        String path = preferences.getString(InAppUpdateManager.PREF_PENDING_APK, "");
+        if (TextUtils.isEmpty(path)) {
+            return;
+        }
+        File apk = new File(path);
+        if (!apk.isFile()) {
+            preferences.edit().remove(InAppUpdateManager.PREF_PENDING_APK).apply();
+            return;
+        }
+
+        updateInstallInProgress = true;
+        if (updateStatusView != null) {
+            updateStatusView.setText("Preparing installation...");
+        }
+        InAppUpdateManager.install(this, apk, new InAppUpdateManager.InstallListener() {
+            @Override
+            public void onCommitted() {
+                preferences.edit().remove(InAppUpdateManager.PREF_PENDING_APK).apply();
+                updateInstallInProgress = false;
+                if (updateStatusView != null) {
+                    updateStatusView.setText("Ready to install");
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                updateInstallInProgress = false;
+                if (updateStatusView != null) {
+                    updateStatusView.setText(message);
+                }
+                toast(message);
+            }
+        });
     }
 
     private void renderAppShell() {

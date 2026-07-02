@@ -48,17 +48,6 @@ try {
     $writer.Dispose()
 }
 
-$metadata = [ordered]@{
-    versionCode = $VersionCode
-    versionName = $VersionName
-    apkUrl = $apkUrl
-    releasePageUrl = $releasePageUrl
-    releaseNotes = $ReleaseNotes
-}
-$metadataJson = $metadata | ConvertTo-Json
-[System.IO.File]::WriteAllText($metadataPath, $metadataJson + [Environment]::NewLine,
-    [System.Text.UTF8Encoding]::new($false))
-
 & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "build-apk.ps1")
 if ($LASTEXITCODE -ne 0) {
     throw "APK build failed."
@@ -69,6 +58,17 @@ $builtApk = Join-Path $root "app/build/outputs/apk/debug/app-debug.apk"
 $releaseApk = Join-Path $distDir $apkName
 Copy-Item -LiteralPath $builtApk -Destination $releaseApk -Force
 $sha256 = (Get-FileHash -LiteralPath $releaseApk -Algorithm SHA256).Hash
+$metadata = [ordered]@{
+    versionCode = $VersionCode
+    versionName = $VersionName
+    apkUrl = $apkUrl
+    releasePageUrl = $releasePageUrl
+    releaseNotes = $ReleaseNotes
+    sha256 = $sha256
+}
+$metadataJson = $metadata | ConvertTo-Json
+[System.IO.File]::WriteAllText($metadataPath, $metadataJson + [Environment]::NewLine,
+    [System.Text.UTF8Encoding]::new($false))
 
 Write-Output "Prepared $releaseApk"
 Write-Output "SHA-256 $sha256"

@@ -1,7 +1,8 @@
 {
-    "versionCode":  3,
-    "versionName":  "1.2.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.2.0/PersonalOS-1.2.0.apk",
+    "versionCode":  4,
+    "versionName":  "1.3.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.3.0/PersonalOS-1.3.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Added Diary with date selection, daily text entries, editable history, and delete support. Updated the PersonalOS home screen to a 2x2 tool grid."
+    "releaseNotes":  "Downloads updates inside PersonalOS with progress and SHA-256 verification, then hands the verified APK to Android PackageInstaller for the required confirmation.",
+    "sha256":  "5743E701BDD12B497250780A93A72A47FC7D406A34BB8B3DEAD5FDFAC00DAB15"
 }
