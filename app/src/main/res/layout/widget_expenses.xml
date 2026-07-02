@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widgetTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Expenses"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Today spent"
+        android:textColor="#DDE7F0"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widgetTodaySpent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Rs.0.00"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Month spent"
+        android:textColor="#DDE7F0"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widgetMonthSpent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Rs.0.00"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/widgetAddExpense"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:text="Add Expense"
+        android:textAllCaps="false"
+        android:textSize="12sp" />
+</LinearLayout>

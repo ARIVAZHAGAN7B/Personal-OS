@@ -1,0 +1,21 @@
+# Local Android configuration and build output
+local.properties
+app/build/
+build/
+.gradle/
+
+# Signing keys must never be published
+*.keystore
+*.jks
+signing.local.properties
+
+# Local captures and device dumps
+adb-screenshot-*.png
+window.xml
+/screenshots/
+/*.png
+/dist/
+
+# IDE files
+.idea/
+*.iml

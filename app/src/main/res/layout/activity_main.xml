@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <ImageView
+        android:id="@+id/homeLogo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#FFFFFF"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/app_name"
+        android:padding="24dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/expense_tracker_logo" />
+
+</FrameLayout>

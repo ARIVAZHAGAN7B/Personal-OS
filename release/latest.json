@@ -1,0 +1,7 @@
+{
+    "versionCode":  1,
+    "versionName":  "1.0.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.0.0/PersonalOS-1.0.0.apk",
+    "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
+    "releaseNotes":  "Initial downloadable PersonalOS release with in-app update checks."
+}

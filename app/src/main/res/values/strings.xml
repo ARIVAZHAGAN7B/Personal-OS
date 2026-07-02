@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Personal OS</string>
+    <string name="home_message">Expenses</string>
+    <string name="expense_widget_description">Quick expense summary</string>
+</resources>

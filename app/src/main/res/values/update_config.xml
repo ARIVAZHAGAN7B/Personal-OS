@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="default_update_feed_url" translatable="false">https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest/download/latest.json</string>
+</resources>
