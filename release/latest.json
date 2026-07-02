@@ -1,8 +1,8 @@
 {
-    "versionCode":  4,
-    "versionName":  "1.3.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.3.0/PersonalOS-1.3.0.apk",
+    "versionCode":  5,
+    "versionName":  "1.4.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.4.0/PersonalOS-1.4.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Downloads updates inside PersonalOS with progress and SHA-256 verification, then hands the verified APK to Android PackageInstaller for the required confirmation.",
-    "sha256":  "FF9CCBB808AE042A6BA7AF69F07262BBC55B363E619A4A115CB35184E9D95F95"
+    "releaseNotes":  "Refreshed Diary with previous and next day navigation, compact calendar selection, a larger editor, live character count, cleaner actions, and dated history cards.",
+    "sha256":  "FE270D88FC81B196DC31534DF785093E0C39025987670CE7FAE1B012B7C93E1F"
 }

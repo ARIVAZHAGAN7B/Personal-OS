@@ -80,6 +80,16 @@ final class DiaryDbHelper extends SQLiteOpenHelper {
                 null);
     }
 
+    long getEntryCount() {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM diary_entries", null);
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
     void deleteEntry(long entryDate) {
         getWritableDatabase().delete(
                 "diary_entries", "entry_date = ?", new String[]{String.valueOf(entryDate)});

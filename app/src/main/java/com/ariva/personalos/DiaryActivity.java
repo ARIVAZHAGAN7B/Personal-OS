@@ -6,7 +6,9 @@ import android.app.DatePickerDialog;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,8 +35,14 @@ public class DiaryActivity extends Activity {
     private final Calendar selectedDate = Calendar.getInstance();
     private final SimpleDateFormat fullDateFormat =
             new SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault());
-    private final SimpleDateFormat shortDateFormat =
-            new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
+    private final SimpleDateFormat navigationDateFormat =
+            new SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault());
+    private final SimpleDateFormat dayNumberFormat =
+            new SimpleDateFormat("dd", Locale.getDefault());
+    private final SimpleDateFormat monthFormat =
+            new SimpleDateFormat("MMM", Locale.getDefault());
+    private final SimpleDateFormat weekdayFormat =
+            new SimpleDateFormat("EEEE", Locale.getDefault());
 
     private DiaryDbHelper db;
     private AppUi ui;
@@ -70,7 +78,9 @@ public class DiaryActivity extends Activity {
 
         content.addView(backButton());
         content.addView(ui.text("Diary", 20, COLOR_NAVY_TEXT, true));
-        content.addView(ui.text(shortDateFormat.format(new Date()), 12, COLOR_MUTED, false));
+        long entryCount = db.getEntryCount();
+        content.addView(ui.text(entryCount + (entryCount == 1 ? " saved entry" : " saved entries"),
+                12, COLOR_MUTED, false));
         ui.addSpace(content, 14);
 
         renderEditor();
@@ -83,37 +93,106 @@ public class DiaryActivity extends Activity {
         long date = selectedDate.getTimeInMillis();
         boolean hasEntry = db.hasEntry(date);
         LinearLayout panel = ui.panel();
-        panel.addView(ui.sectionTitle(fullDateFormat.format(selectedDate.getTime())));
-
-        Button chooseDate = ui.actionButton("Choose date", v -> showDatePicker());
-        chooseDate.setCompoundDrawablesWithIntrinsicBounds(
-                android.R.drawable.ic_menu_my_calendar, 0, 0, 0);
-        chooseDate.setCompoundDrawablePadding(ui.dp(7));
-        panel.addView(chooseDate);
-        ui.addSpace(panel, 10);
+        panel.addView(ui.sectionTitle("Daily Entry"));
+        panel.addView(dateNavigator());
+        ui.addSpace(panel, 12);
 
         bodyInput = new EditText(this);
         bodyInput.setText(db.getEntry(date));
         bodyInput.setHint("Write about your day");
-        bodyInput.setTextSize(15);
+        bodyInput.setTextSize(16);
         bodyInput.setTextColor(COLOR_NAVY_TEXT);
         bodyInput.setHintTextColor(Color.rgb(139, 153, 166));
         bodyInput.setGravity(Gravity.TOP | Gravity.LEFT);
-        bodyInput.setMinHeight(ui.dp(180));
+        bodyInput.setMinHeight(ui.dp(220));
         bodyInput.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10));
         bodyInput.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
         panel.addView(bodyInput, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        ui.addSpace(panel, 10);
+        ui.addSpace(panel, 6);
 
-        panel.addView(ui.actionButton(hasEntry ? "Update entry" : "Save entry", v -> saveEntry()));
+        TextView characterCount = ui.text(
+                bodyInput.getText().length() + " characters", 11, COLOR_MUTED, false);
+        characterCount.setGravity(Gravity.RIGHT);
+        panel.addView(characterCount);
+        bodyInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                characterCount.setText(text.length() + " characters");
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+        ui.addSpace(panel, 8);
+
+        LinearLayout actions = ui.horizontalRow();
+        actions.addView(ui.actionButton(hasEntry ? "Update" : "Save", v -> saveEntry()),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         if (hasEntry) {
-            ui.addSpace(panel, 8);
-            Button delete = ui.actionButton("Delete entry", v -> confirmDelete());
+            Button delete = ui.actionButton("Delete", v -> confirmDelete());
             delete.setBackground(ui.tileBackground(COLOR_RED, Color.TRANSPARENT));
-            panel.addView(delete);
+            LinearLayout.LayoutParams deleteParams =
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            deleteParams.setMargins(ui.dp(8), 0, 0, 0);
+            actions.addView(delete, deleteParams);
         }
+        panel.addView(actions);
         content.addView(panel);
+    }
+
+    private LinearLayout dateNavigator() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        Button previous = dateArrowButton("<", "Previous day");
+        previous.setOnClickListener(v -> moveSelectedDate(-1));
+        row.addView(previous, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(48)));
+
+        Button date = new Button(this);
+        date.setText(navigationDateFormat.format(selectedDate.getTime()));
+        date.setTextSize(13);
+        date.setTextColor(COLOR_NAVY_TEXT);
+        date.setAllCaps(false);
+        date.setSingleLine(true);
+        date.setEllipsize(TextUtils.TruncateAt.END);
+        date.setCompoundDrawablesWithIntrinsicBounds(
+                android.R.drawable.ic_menu_my_calendar, 0, 0, 0);
+        date.setCompoundDrawablePadding(ui.dp(6));
+        date.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        date.setOnClickListener(v -> showDatePicker());
+        LinearLayout.LayoutParams dateParams =
+                new LinearLayout.LayoutParams(0, ui.dp(48), 1);
+        dateParams.setMargins(ui.dp(8), 0, ui.dp(8), 0);
+        row.addView(date, dateParams);
+
+        Button next = dateArrowButton(">", "Next day");
+        next.setOnClickListener(v -> moveSelectedDate(1));
+        row.addView(next, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(48)));
+        return row;
+    }
+
+    private Button dateArrowButton(String symbol, String description) {
+        Button button = new Button(this);
+        button.setText(symbol);
+        button.setTextSize(18);
+        button.setTextColor(COLOR_TEAL);
+        button.setContentDescription(description);
+        button.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        button.setPadding(0, 0, 0, 0);
+        return button;
+    }
+
+    private void moveSelectedDate(int amount) {
+        selectedDate.add(Calendar.DAY_OF_YEAR, amount);
+        normalizeSelectedDate();
+        render();
     }
 
     private void renderHistory() {
@@ -144,11 +223,25 @@ public class DiaryActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(ui.dp(10), ui.dp(9), ui.dp(10), ui.dp(9));
-        row.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        boolean selected = entryDate == selectedDate.getTimeInMillis();
+        row.setBackground(ui.tileBackground(
+                selected ? Color.rgb(234, 246, 247) : COLOR_FIELD,
+                selected ? COLOR_TEAL : COLOR_BORDER));
+
+        LinearLayout dateBadge = new LinearLayout(this);
+        dateBadge.setOrientation(LinearLayout.VERTICAL);
+        dateBadge.setGravity(Gravity.CENTER);
+        dateBadge.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
+        dateBadge.addView(centeredText(dayNumberFormat.format(new Date(entryDate)), 16, COLOR_TEAL, true));
+        dateBadge.addView(centeredText(monthFormat.format(new Date(entryDate)).toUpperCase(Locale.US),
+                10, COLOR_MUTED, true));
+        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(ui.dp(50), ui.dp(52));
+        badgeParams.setMargins(0, 0, ui.dp(10), 0);
+        row.addView(dateBadge, badgeParams);
 
         LinearLayout textColumn = new LinearLayout(this);
         textColumn.setOrientation(LinearLayout.VERTICAL);
-        textColumn.addView(ui.text(fullDateFormat.format(new Date(entryDate)), 14, COLOR_NAVY_TEXT, true));
+        textColumn.addView(ui.text(weekdayFormat.format(new Date(entryDate)), 14, COLOR_NAVY_TEXT, true));
         TextView preview = ui.text(preview(body), 12, COLOR_MUTED, false);
         preview.setSingleLine(true);
         preview.setEllipsize(TextUtils.TruncateAt.END);
@@ -165,6 +258,12 @@ public class DiaryActivity extends Activity {
             render();
         });
         return row;
+    }
+
+    private TextView centeredText(String value, int size, int color, boolean bold) {
+        TextView text = ui.text(value, size, color, bold);
+        text.setGravity(Gravity.CENTER);
+        return text;
     }
 
     private void showDatePicker() {
