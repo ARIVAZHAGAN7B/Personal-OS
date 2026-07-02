@@ -31,8 +31,8 @@ public class AppUi {
     }
 
     public TextView sectionTitle(String title) {
-        TextView view = text(title, 20, Color.rgb(16, 24, 40), true);
-        view.setPadding(0, 0, 0, dp(8));
+        TextView view = text(title, 15, Color.rgb(13, 34, 54), true);
+        view.setPadding(0, 0, 0, dp(10));
         return view;
     }
 
@@ -70,8 +70,9 @@ public class AppUi {
         button.setTextSize(14);
         button.setTextColor(Color.WHITE);
         button.setAllCaps(false);
-        button.setBackgroundColor(Color.rgb(0, 110, 130));
+        button.setBackground(tileBackground(Color.rgb(0, 110, 130), Color.TRANSPARENT));
         button.setPadding(dp(8), dp(10), dp(8), dp(10));
+        button.setMinHeight(dp(44));
         button.setOnClickListener(listener);
         return button;
     }
@@ -79,9 +80,10 @@ public class AppUi {
     public LinearLayout panel() {
         LinearLayout panel = new LinearLayout(context);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackground(tileBackground(Color.WHITE, Color.TRANSPARENT));
-        panel.setPadding(dp(14), dp(14), dp(14), dp(14));
+        panel.setBackground(tileBackground(Color.WHITE, Color.rgb(224, 228, 236)));
+        panel.setPadding(dp(12), dp(11), dp(12), dp(11));
         panel.setMinimumHeight(dp(48));
+        panel.setElevation(dp(1));
         return panel;
     }
 

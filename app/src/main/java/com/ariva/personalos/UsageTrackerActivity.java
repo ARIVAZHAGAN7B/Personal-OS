@@ -3,6 +3,7 @@ package com.ariva.personalos;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -17,6 +18,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,9 +29,15 @@ import java.util.Locale;
 import java.util.Map;
 
 public class UsageTrackerActivity extends Activity {
+    private static final int COLOR_NAVY_TEXT = Color.rgb(13, 34, 54);
+    private static final int COLOR_MUTED = Color.rgb(91, 107, 123);
+    private static final int COLOR_TEAL = Color.rgb(0, 110, 130);
+    private static final int COLOR_BORDER = Color.rgb(224, 228, 236);
+    private static final int COLOR_GREEN = Color.rgb(15, 157, 88);
+    private static final int COLOR_RED = Color.rgb(180, 35, 24);
     private static final String TAB_TODAY = "Today";
-    private static final String TAB_WEEK = "Week";
-    private static final String TAB_MONTH = "Month";
+    private static final String TAB_WEEK = "Weekly";
+    private static final String TAB_MONTH = "Monthly";
 
     private UsageDbHelper db;
     private AppUi ui;
@@ -89,17 +97,16 @@ public class UsageTrackerActivity extends Activity {
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(24));
+        content.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(24));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         content.addView(mainPageBack());
-        ui.addSpace(content, 6);
-        content.addView(ui.text("Digital Usage", 28, Color.rgb(16, 24, 40), true));
-        content.addView(ui.text("Daily, weekly, and monthly app usage saved inside Personal OS.",
-                14, Color.rgb(71, 84, 103), false));
-        ui.addSpace(content, 12);
+        content.addView(ui.text("Digital tracker", 20, COLOR_NAVY_TEXT, true));
+        content.addView(ui.text(new SimpleDateFormat("EEEE, dd MMMM", Locale.getDefault()).format(new Date()),
+                12, COLOR_MUTED, false));
+        ui.addSpace(content, 14);
 
         if (!UsageTracker.hasUsageAccess(this)) {
             renderPermissionPanel();
@@ -108,9 +115,9 @@ public class UsageTrackerActivity extends Activity {
         }
 
         renderActions();
-        ui.addSpace(content, 12);
-        renderTabs();
         ui.addSpace(content, 14);
+        renderTabs();
+        ui.addSpace(content, 12);
 
         UsageRange range = selectedRange();
         if (selectedPackageName != null) {
@@ -166,44 +173,56 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void renderActions() {
+        LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Controls"));
         LinearLayout row = ui.horizontalRow();
-        row.addView(ui.actionButton("Sync Now", new View.OnClickListener() {
+        Button sync = ui.actionButton(syncInProgress ? "Syncing..." : "Sync", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startSync(60, true);
             }
-        }), ui.weightParams());
-        row.addView(ui.actionButton("Usage Settings", new View.OnClickListener() {
+        });
+        sync.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_popup_sync, 0, 0, 0);
+        sync.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
+        sync.setCompoundDrawablePadding(ui.dp(6));
+        sync.setEnabled(!syncInProgress);
+        row.addView(sync, ui.weightParams());
+
+        Button settings = ui.actionButton("Usage access", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
             }
-        }), ui.weightParams());
-        content.addView(row);
-
-        ui.addSpace(content, 8);
-        Button toggleSystem = ui.actionButton(hideSystemApps ? "Show System Apps" : "Hide System Apps", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                hideSystemApps = !hideSystemApps;
-                preferences().edit().putBoolean("hide_system_apps", hideSystemApps).apply();
-                render();
-            }
         });
-        content.addView(toggleSystem, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        settings.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_preferences, 0, 0, 0);
+        settings.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
+        settings.setCompoundDrawablePadding(ui.dp(6));
+        row.addView(settings, ui.weightParams());
+        panel.addView(row);
+
+        ui.addSpace(panel, 10);
+        Switch systemApps = new Switch(this);
+        systemApps.setText("Hide system apps");
+        systemApps.setTextSize(14);
+        systemApps.setTextColor(COLOR_NAVY_TEXT);
+        systemApps.setChecked(hideSystemApps);
+        systemApps.setOnCheckedChangeListener((buttonView, checked) -> {
+            hideSystemApps = checked;
+            preferences().edit().putBoolean("hide_system_apps", checked).apply();
+            render();
+        });
+        panel.addView(systemApps);
 
         long lastSync = db.getLastSyncTime();
         if (lastSync > 0) {
-            ui.addSpace(content, 8);
-            content.addView(ui.text("Last sync: " + dateTimeFormat.format(new Date(lastSync)),
-                    13, Color.rgb(71, 84, 103), false));
+            ui.addSpace(panel, 6);
+            panel.addView(ui.text("Last sync  " + dateTimeFormat.format(new Date(lastSync)),
+                    12, COLOR_MUTED, false));
         } else if (syncInProgress) {
-            ui.addSpace(content, 8);
-            content.addView(ui.text("Syncing usage in background...",
-                    13, Color.rgb(71, 84, 103), false));
+            ui.addSpace(panel, 6);
+            panel.addView(ui.text("Syncing usage...", 12, COLOR_MUTED, false));
         }
+        content.addView(panel);
     }
 
     private void renderTabs() {
@@ -220,8 +239,10 @@ public class UsageTrackerActivity extends Activity {
         button.setText(tab);
         button.setAllCaps(false);
         button.setTextSize(13);
-        button.setTextColor(selected ? Color.WHITE : Color.rgb(16, 24, 40));
-        button.setBackgroundColor(selected ? Color.rgb(22, 63, 95) : Color.WHITE);
+        button.setTextColor(selected ? Color.WHITE : COLOR_NAVY_TEXT);
+        button.setBackground(ui.tileBackground(selected ? COLOR_TEAL : Color.WHITE,
+                selected ? Color.TRANSPARENT : COLOR_BORDER));
+        button.setMinHeight(ui.dp(48));
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -235,20 +256,36 @@ public class UsageTrackerActivity extends Activity {
 
     private void renderSummary(UsageRange range) {
         Map<String, Long> summary = db.getSummary(range.start, range.end);
+        LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle(selectedTab + " Summary"));
         LinearLayout row = ui.horizontalRow();
-        row.addView(ui.metricCard("Screen time", formatDuration(summary.get("total_ms"))), ui.weightParams());
-        row.addView(ui.metricCard("Opens", String.valueOf(summary.get("launches"))), ui.weightParams());
-        content.addView(row);
-        ui.addSpace(content, 8);
+        row.addView(summaryMetric("Screen time", formatDuration(summary.get("total_ms")), COLOR_TEAL), ui.weightParams());
+        row.addView(summaryMetric("Opens", String.valueOf(summary.get("launches")), COLOR_NAVY_TEXT), ui.weightParams());
+        panel.addView(row);
+        ui.addSpace(panel, 8);
         row = ui.horizontalRow();
-        row.addView(ui.metricCard("Apps used", String.valueOf(summary.get("app_count"))), ui.weightParams());
-        row.addView(ui.metricCard("Daily avg", formatDuration(summary.get("total_ms") / range.dayCount())), ui.weightParams());
-        content.addView(row);
+        row.addView(summaryMetric("Apps used", String.valueOf(summary.get("app_count")), COLOR_GREEN), ui.weightParams());
+        row.addView(summaryMetric("Daily average",
+                formatDuration(summary.get("total_ms") / range.dayCount()), COLOR_TEAL), ui.weightParams());
+        panel.addView(row);
+        content.addView(panel);
+    }
+
+    private LinearLayout summaryMetric(String label, String value, int valueColor) {
+        LinearLayout metric = new LinearLayout(this);
+        metric.setOrientation(LinearLayout.VERTICAL);
+        metric.setPadding(ui.dp(4), ui.dp(2), ui.dp(4), ui.dp(4));
+        metric.setMinimumHeight(ui.dp(52));
+        metric.addView(ui.text(label, 12, COLOR_MUTED, false));
+        TextView valueView = ui.text(value, 17, valueColor, true);
+        valueView.setPadding(0, ui.dp(4), 0, 0);
+        metric.addView(valueView);
+        return metric;
     }
 
     private void renderTopApps(UsageRange range) {
-        content.addView(ui.sectionTitle("Most Used Apps"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Most Used Apps"));
         Cursor cursor = db.getTopApps(range.start, range.end, 50);
         int shown = 0;
         try {
@@ -349,9 +386,9 @@ public class UsageTrackerActivity extends Activity {
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        titles.addView(ui.text(selectedAppName, 22, Color.rgb(16, 24, 40), true));
+        titles.addView(ui.text(selectedAppName, 18, COLOR_NAVY_TEXT, true));
         titles.addView(ui.text(selectedCategory == null ? "App usage details" : selectedCategory,
-                13, Color.rgb(71, 84, 103), false));
+                12, COLOR_MUTED, false));
         row.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         header.addView(row);
         content.addView(header);
@@ -396,23 +433,23 @@ public class UsageTrackerActivity extends Activity {
             cursor.close();
         }
 
-        LinearLayout row = ui.horizontalRow();
-        row.addView(ui.metricCard("Used", formatDuration(totalMs)), ui.weightParams());
-        row.addView(ui.metricCard("Opened", String.valueOf(launches)), ui.weightParams());
-        content.addView(row);
-        ui.addSpace(content, 8);
-
-        row = ui.horizontalRow();
-        row.addView(ui.metricCard("Daily avg", formatDuration(totalMs / Math.max(1, range.dayCount()))), ui.weightParams());
-        row.addView(ui.metricCard("Active days", activeDays + "/" + range.dayCount()), ui.weightParams());
-        content.addView(row);
-
-        ui.addSpace(content, 10);
         LinearLayout panel = ui.panel();
-        panel.addView(ui.text("First open: " + (firstOpen > 0 ? dateTimeFormat.format(new Date(firstOpen)) : "No data"),
-                13, Color.rgb(71, 84, 103), false));
-        panel.addView(ui.text("Last open: " + (lastOpen > 0 ? dateTimeFormat.format(new Date(lastOpen)) : "No data"),
-                13, Color.rgb(71, 84, 103), false));
+        panel.addView(ui.sectionTitle("Usage Summary"));
+        LinearLayout row = ui.horizontalRow();
+        row.addView(summaryMetric("Used", formatDuration(totalMs), COLOR_TEAL), ui.weightParams());
+        row.addView(summaryMetric("Opened", String.valueOf(launches), COLOR_NAVY_TEXT), ui.weightParams());
+        panel.addView(row);
+        ui.addSpace(panel, 8);
+        row = ui.horizontalRow();
+        row.addView(summaryMetric("Daily average",
+                formatDuration(totalMs / Math.max(1, range.dayCount())), COLOR_TEAL), ui.weightParams());
+        row.addView(summaryMetric("Active days", activeDays + "/" + range.dayCount(), COLOR_GREEN), ui.weightParams());
+        panel.addView(row);
+        ui.addSpace(panel, 8);
+        panel.addView(ui.compactMetricRow("First open",
+                firstOpen > 0 ? dateTimeFormat.format(new Date(firstOpen)) : "No data", COLOR_MUTED));
+        panel.addView(ui.compactMetricRow("Last open",
+                lastOpen > 0 ? dateTimeFormat.format(new Date(lastOpen)) : "No data", COLOR_MUTED));
         content.addView(panel);
     }
 
@@ -420,7 +457,7 @@ public class UsageTrackerActivity extends Activity {
         long dailyLimit = db.getDailyLimit(selectedPackageName);
         long usedToday = appTotalForRange(selectedPackageName, UsageRange.today());
         LinearLayout panel = ui.panel();
-        panel.addView(ui.text("Daily limit", 17, Color.rgb(16, 24, 40), true));
+        panel.addView(ui.sectionTitle("Daily Limit"));
         if (dailyLimit <= 0) {
             panel.addView(ui.text("No daily limit set.", 13, Color.rgb(71, 84, 103), false));
         } else {
@@ -458,8 +495,8 @@ public class UsageTrackerActivity extends Activity {
             renderMonthlyWeeklyTrend(range);
             return;
         }
-        content.addView(ui.sectionTitle(TAB_WEEK.equals(selectedTab) ? "Weekly Trend" : "Daily Trend"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle(TAB_WEEK.equals(selectedTab) ? "Weekly Trend" : "Daily Trend"));
         int days = (int) Math.max(1, range.dayCount());
         long[] totals = new long[days];
         long[] launches = new long[days];
@@ -491,8 +528,8 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void renderMonthlyWeeklyTrend(UsageRange range) {
-        content.addView(ui.sectionTitle("Weekly Usage"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Weekly Usage"));
         int weekCount = (int) Math.max(1, Math.ceil(range.dayCount() / 7.0));
         long[] totals = new long[weekCount];
         long[] launches = new long[weekCount];
@@ -608,8 +645,8 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void renderFrequentOpenWarnings(UsageRange range) {
-        content.addView(ui.sectionTitle("Open Frequency"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Open Frequency"));
         Cursor cursor = db.getFrequentOpenApps(range.start, range.end, 5);
         boolean any = false;
         try {
@@ -642,8 +679,8 @@ public class UsageTrackerActivity extends Activity {
         if (TAB_TODAY.equals(selectedTab)) {
             return;
         }
-        content.addView(ui.sectionTitle("Best / Busiest Day"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Best / Busiest Day"));
         long bestUsage = Long.MAX_VALUE;
         long busiestUsage = 0;
         long bestDay = 0;
@@ -672,8 +709,8 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void renderHourlyBreakdown(long dateStart) {
-        content.addView(ui.sectionTitle("Hourly Breakdown"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Hourly Breakdown"));
         long[] hours = new long[24];
         long max = 0;
         Cursor cursor = db.getHourlyUsage(dateStart);
@@ -708,8 +745,8 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void renderCategoryBreakdown(UsageRange range) {
-        content.addView(ui.sectionTitle("Categories"));
         LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Categories"));
         Cursor cursor = db.getCategoryUsage(range.start, range.end);
         try {
             if (!cursor.moveToFirst()) {
