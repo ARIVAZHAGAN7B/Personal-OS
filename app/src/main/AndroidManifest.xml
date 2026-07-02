@@ -37,6 +37,9 @@
         <activity
             android:name=".UsageTrackerActivity"
             android:exported="false" />
+        <activity
+            android:name=".DiaryActivity"
+            android:exported="false" />
         <receiver
             android:name=".UsageSyncReceiver"
             android:exported="false" />

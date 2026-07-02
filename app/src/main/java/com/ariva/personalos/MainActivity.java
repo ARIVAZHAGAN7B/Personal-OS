@@ -181,26 +181,36 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        LinearLayout row = horizontalRow();
-        row.addView(imageToolTile(R.drawable.expense_tracker_logo, "Expense tracker", new View.OnClickListener() {
+        LinearLayout firstRow = horizontalRow();
+        firstRow.addView(imageToolTile(R.drawable.expense_tracker_logo, "Expense tracker", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 selectPage(PAGE_DASHBOARD);
             }
         }), toolGridParams());
-        row.addView(imageToolTile(R.drawable.digi_tracker_logo, "Digital usage tracker", new View.OnClickListener() {
+        firstRow.addView(imageToolTile(R.drawable.digi_tracker_logo, "Digital usage tracker", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, UsageTrackerActivity.class));
             }
         }), toolGridParams());
-        row.addView(imageToolTile(R.drawable.ic_nav_settings, "App settings", new View.OnClickListener() {
+        content.addView(firstRow);
+
+        addSpace(10);
+        LinearLayout secondRow = horizontalRow();
+        secondRow.addView(imageToolTile(R.drawable.ic_diary, "Diary", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, DiaryActivity.class));
+            }
+        }), toolGridParams());
+        secondRow.addView(imageToolTile(R.drawable.ic_nav_settings, "App settings", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 renderPersonalOsSettings();
             }
         }), toolGridParams());
-        content.addView(row);
+        content.addView(secondRow);
 
         setContentView(scrollView);
         maybeCheckForUpdates();

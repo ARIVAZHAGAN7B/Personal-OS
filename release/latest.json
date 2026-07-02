@@ -1,7 +1,7 @@
 {
-    "versionCode":  2,
-    "versionName":  "1.1.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.1.0/PersonalOS-1.1.0.apk",
+    "versionCode":  3,
+    "versionName":  "1.2.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.2.0/PersonalOS-1.2.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Refreshed Digital Tracker UI with grouped controls, consistent tabs, unified summary widgets, and analytical titles inside their panels."
+    "releaseNotes":  "Added Diary with date selection, daily text entries, editable history, and delete support. Updated the PersonalOS home screen to a 2x2 tool grid."
 }
