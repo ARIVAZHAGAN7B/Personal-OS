@@ -118,6 +118,11 @@ public class UsageTrackerActivity extends Activity {
     }
 
     private void render() {
+        boolean detailPage = PAGE_APP_DETAIL.equals(pageType()) || PAGE_DAY_DETAIL.equals(pageType());
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setBackgroundColor(Color.rgb(247, 249, 252));
+
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(Color.rgb(247, 249, 252));
@@ -128,6 +133,12 @@ public class UsageTrackerActivity extends Activity {
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
+        screen.addView(scrollView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        if (!detailPage) {
+            screen.addView(bottomNavigation(), new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(68)));
+        }
 
         content.addView(mainPageBack());
         content.addView(ui.text(pageTitle(), 20, COLOR_NAVY_TEXT, true));
@@ -135,10 +146,10 @@ public class UsageTrackerActivity extends Activity {
                 12, COLOR_MUTED, false));
         ui.addSpace(content, 14);
 
-        if (PAGE_APP_DETAIL.equals(pageType()) || PAGE_DAY_DETAIL.equals(pageType())) {
+        if (detailPage) {
             if (!UsageTracker.hasUsageAccess(this)) {
                 renderPermissionPanel();
-                setContentView(scrollView);
+                setContentView(screen);
                 return;
             }
             if (PAGE_DAY_DETAIL.equals(pageType())) {
@@ -146,15 +157,13 @@ public class UsageTrackerActivity extends Activity {
             } else {
                 renderAppDetailPage();
             }
-            setContentView(scrollView);
+            setContentView(screen);
             return;
         }
 
-        renderPageNavigation();
-        ui.addSpace(content, 14);
         if (!UsageTracker.hasUsageAccess(this) && !PAGE_SETTINGS.equals(pageType())) {
             renderPermissionPanel();
-            setContentView(scrollView);
+            setContentView(screen);
             return;
         }
         if (PAGE_SETTINGS.equals(pageType())) {
@@ -164,7 +173,7 @@ public class UsageTrackerActivity extends Activity {
         } else {
             renderHomePage();
         }
-        setContentView(scrollView);
+        setContentView(screen);
     }
 
     private String pageTitle() {
@@ -411,30 +420,48 @@ public class UsageTrackerActivity extends Activity {
         renderCategoryBreakdown(day);
     }
 
-    private void renderPageNavigation() {
-        LinearLayout row = ui.horizontalRow();
-        row.addView(pageButton("Today", PAGE_HOME, UsageTrackerActivity.class), ui.weightParams());
-        row.addView(pageButton("Analytics", PAGE_ANALYTICS, UsageAnalyticsActivity.class), ui.weightParams());
-        row.addView(pageButton("Settings", PAGE_SETTINGS, UsageSettingsActivity.class), ui.weightParams());
-        content.addView(row);
+    private LinearLayout bottomNavigation() {
+        LinearLayout navigation = new LinearLayout(this);
+        navigation.setOrientation(LinearLayout.HORIZONTAL);
+        navigation.setGravity(Gravity.CENTER);
+        navigation.setPadding(ui.dp(6), ui.dp(4), ui.dp(6), ui.dp(4));
+        navigation.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
+        navigation.setElevation(ui.dp(8));
+        navigation.addView(navItem(
+                "Today", R.drawable.ic_nav_home, PAGE_HOME, UsageTrackerActivity.class), navItemParams());
+        navigation.addView(navItem(
+                "Analytics", R.drawable.ic_nav_analytics, PAGE_ANALYTICS, UsageAnalyticsActivity.class), navItemParams());
+        navigation.addView(navItem(
+                "Settings", R.drawable.ic_nav_settings, PAGE_SETTINGS, UsageSettingsActivity.class), navItemParams());
+        return navigation;
     }
 
-    private Button pageButton(String label, String page, final Class<? extends Activity> destination) {
+    private TextView navItem(String label, int iconResource, String page,
+                             final Class<? extends Activity> destination) {
         boolean selected = page.equals(pageType());
-        Button button = new Button(this);
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextSize(13);
-        button.setTextColor(selected ? Color.WHITE : COLOR_NAVY_TEXT);
-        button.setBackground(ui.tileBackground(selected ? COLOR_TEAL : Color.WHITE,
-                selected ? Color.TRANSPARENT : COLOR_BORDER));
-        button.setMinHeight(ui.dp(48));
-        button.setEnabled(!selected);
-        button.setOnClickListener(v -> {
+        int itemColor = selected ? COLOR_TEAL : COLOR_MUTED;
+        TextView item = ui.text(label, 11, itemColor, selected);
+        item.setGravity(Gravity.CENTER);
+        item.setCompoundDrawablesWithIntrinsicBounds(0, iconResource, 0, 0);
+        item.setCompoundDrawableTintList(ColorStateList.valueOf(itemColor));
+        item.setCompoundDrawablePadding(ui.dp(3));
+        item.setBackground(ui.tileBackground(
+                selected ? Color.rgb(229, 244, 246) : Color.TRANSPARENT,
+                Color.TRANSPARENT));
+        item.setContentDescription(label + (selected ? ", selected" : ""));
+        item.setEnabled(!selected);
+        item.setOnClickListener(v -> {
             startActivity(new Intent(UsageTrackerActivity.this, destination));
             finish();
         });
-        return button;
+        return item;
+    }
+
+    private LinearLayout.LayoutParams navItemParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
+        params.setMargins(ui.dp(3), 0, ui.dp(3), 0);
+        return params;
     }
 
     private TextView mainPageBack() {
@@ -518,35 +545,6 @@ public class UsageTrackerActivity extends Activity {
             panel.addView(ui.text("Syncing usage...", 12, COLOR_MUTED, false));
         }
         content.addView(panel);
-    }
-
-    private void renderTabs() {
-        LinearLayout row = ui.horizontalRow();
-        row.addView(tabButton(TAB_TODAY), ui.weightParams());
-        row.addView(tabButton(TAB_WEEK), ui.weightParams());
-        row.addView(tabButton(TAB_MONTH), ui.weightParams());
-        content.addView(row);
-    }
-
-    private Button tabButton(final String tab) {
-        boolean selected = tab.equals(selectedTab);
-        Button button = new Button(this);
-        button.setText(tab);
-        button.setAllCaps(false);
-        button.setTextSize(13);
-        button.setTextColor(selected ? Color.WHITE : COLOR_NAVY_TEXT);
-        button.setBackground(ui.tileBackground(selected ? COLOR_TEAL : Color.WHITE,
-                selected ? Color.TRANSPARENT : COLOR_BORDER));
-        button.setMinHeight(ui.dp(48));
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                selectedTab = tab;
-                clearSelectedApp();
-                render();
-            }
-        });
-        return button;
     }
 
     private void renderSummary(UsageRange range) {

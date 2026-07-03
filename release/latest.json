@@ -1,8 +1,8 @@
 {
-    "versionCode":  7,
-    "versionName":  "1.6.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.6.0/PersonalOS-1.6.0.apk",
+    "versionCode":  8,
+    "versionName":  "1.7.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.7.0/PersonalOS-1.7.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Adds interactive weekly and monthly screen-time bar charts, category pie charts, and day-by-day usage drill-down pages with per-app, hourly, frequency, and category details.",
-    "sha256":  "9DE0A9115880638EFD0865FD90F1B4C11AC01AFB4B0FA043DD7BCB0E5DD2CD9B"
+    "releaseNotes":  "Redesigned the PersonalOS home with a Today snapshot and animated swipe-to-Tools navigation. Expanded diary browsing and insights, and refined digital usage presentation.",
+    "sha256":  "6263DC863A83F4162964F2C9AB62A8AB92401508277AB8C5B190B733FF6FEEDE"
 }

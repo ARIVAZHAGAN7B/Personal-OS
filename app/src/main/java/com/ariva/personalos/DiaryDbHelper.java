@@ -80,6 +80,45 @@ final class DiaryDbHelper extends SQLiteOpenHelper {
                 null);
     }
 
+    Cursor getEntries(long startInclusive, long endExclusive, boolean newestFirst) {
+        String order = newestFirst ? "DESC" : "ASC";
+        if (startInclusive > 0 && endExclusive > startInclusive) {
+            return getReadableDatabase().rawQuery(
+                    "SELECT entry_date, body, created_at, updated_at FROM diary_entries " +
+                            "WHERE entry_date >= ? AND entry_date < ? ORDER BY entry_date " + order,
+                    new String[]{String.valueOf(startInclusive), String.valueOf(endExclusive)});
+        }
+        return getReadableDatabase().rawQuery(
+                "SELECT entry_date, body, created_at, updated_at FROM diary_entries " +
+                        "ORDER BY entry_date " + order,
+                null);
+    }
+
+    Cursor getEntryDetails(long entryDate) {
+        return getReadableDatabase().rawQuery(
+                "SELECT entry_date, body, created_at, updated_at FROM diary_entries " +
+                        "WHERE entry_date = ? LIMIT 1",
+                new String[]{String.valueOf(entryDate)});
+    }
+
+    Cursor getMonthActivity(long startInclusive, long endExclusive) {
+        return getReadableDatabase().rawQuery(
+                "SELECT entry_date, LENGTH(TRIM(body)) AS character_count " +
+                        "FROM diary_entries WHERE entry_date >= ? AND entry_date < ? " +
+                        "ORDER BY entry_date",
+                new String[]{String.valueOf(startInclusive), String.valueOf(endExclusive)});
+    }
+
+    long getFirstEntryDate() {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COALESCE(MIN(entry_date), 0) FROM diary_entries", null);
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
     long getEntryCount() {
         Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM diary_entries", null);

@@ -30,6 +30,8 @@ import android.view.KeyEvent;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.VelocityTracker;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.EditorInfo;
@@ -37,6 +39,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -100,6 +103,9 @@ public class MainActivity extends Activity {
     private boolean showingAppSettings = false;
     private TextView updateStatusView;
     private boolean updateInstallInProgress = false;
+    private boolean usageSnapshotSyncInProgress = false;
+    private HomeSwipePager homePager;
+    private int homePage = 0;
     private int currentPage = PAGE_DASHBOARD;
     private int currentMorePage = MORE_HOME;
     private String transactionFilterType = "all";
@@ -119,6 +125,7 @@ public class MainActivity extends Activity {
         db = new ExpenseDbHelper(this);
         requestNotificationPermission();
         scheduleDailySummary();
+        UsageSyncScheduler.schedule(this);
         if (ACTION_ADD_EXPENSE.equals(getIntent().getAction())) {
             currentPage = PAGE_TRANSACTIONS;
             currentMorePage = MORE_HOME;
@@ -127,12 +134,22 @@ public class MainActivity extends Activity {
             return;
         }
         renderHome();
+        refreshUsageSnapshot();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         resumePendingUpdate();
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        if (!showingExpenseTracker && !showingAppSettings) {
+            renderHome();
+            refreshUsageSnapshot();
+        }
     }
 
     @Override
@@ -172,6 +189,10 @@ public class MainActivity extends Activity {
             super.onBackPressed();
             return;
         }
+        if (homePage == 1 && homePager != null) {
+            homePager.setPage(0, true);
+            return;
+        }
         super.onBackPressed();
     }
 
@@ -179,17 +200,22 @@ public class MainActivity extends Activity {
         showingExpenseTracker = false;
         showingAppSettings = false;
         updateStatusView = null;
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(COLOR_SCREEN);
+        homePager = new HomeSwipePager(this);
 
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(18), dp(14), dp(18));
-        scrollView.addView(content, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout todayContent = homePageContent();
+        todayContent.addView(appTitle("Today"));
+        todayContent.addView(pageSubtitle(new SimpleDateFormat(
+                "EEEE, dd MMMM", Locale.getDefault()).format(new Date())));
+        content = todayContent;
+        addSpace(14);
+        todayContent.addView(todaySnapshotPanel());
+        homePager.addView(homeScrollPage(todayContent));
 
+        LinearLayout toolsContent = homePageContent();
+        toolsContent.addView(appTitle("Tools"));
+        toolsContent.addView(pageSubtitle("Apps and settings"));
+        content = toolsContent;
+        addSpace(14);
         LinearLayout firstRow = horizontalRow();
         firstRow.addView(imageToolTile(R.drawable.expense_tracker_logo, "Expense tracker", new View.OnClickListener() {
             @Override
@@ -203,7 +229,7 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(MainActivity.this, UsageTrackerActivity.class));
             }
         }), toolGridParams());
-        content.addView(firstRow);
+        toolsContent.addView(firstRow);
 
         addSpace(10);
         LinearLayout secondRow = horizontalRow();
@@ -219,10 +245,153 @@ public class MainActivity extends Activity {
                 renderPersonalOsSettings();
             }
         }), toolGridParams());
-        content.addView(secondRow);
+        toolsContent.addView(secondRow);
+        homePager.addView(homeScrollPage(toolsContent));
 
-        setContentView(scrollView);
+        setContentView(homePager);
+        homePager.setPage(homePage, false);
         maybeCheckForUpdates();
+    }
+
+    private LinearLayout homePageContent() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(14), dp(18), dp(14), dp(18));
+        return page;
+    }
+
+    private ScrollView homeScrollPage(LinearLayout pageContent) {
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.setBackgroundColor(COLOR_SCREEN);
+        scrollView.addView(pageContent, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        scrollView.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        return scrollView;
+    }
+
+    private LinearLayout todaySnapshotPanel() {
+        long dayStart = startOfDay();
+        long dayEnd = nextDayStart();
+        long spent = db.getTotalForType(ExpenseDbHelper.TYPE_EXPENSE, dayStart, dayEnd);
+        long income = db.getTotalForType(ExpenseDbHelper.TYPE_INCOME, dayStart, dayEnd);
+        long net = income - spent;
+
+        String screenTime = "Permission needed";
+        String screenTimeDetail = "Open tracker to enable";
+        if (UsageTracker.hasUsageAccess(this)) {
+            UsageDbHelper usageDb = new UsageDbHelper(this);
+            try {
+                Map<String, Long> summary = usageDb.getSummary(dayStart, dayEnd);
+                screenTime = formatUsageDuration(summary.get("total_ms"));
+                screenTimeDetail = "Used today";
+            } finally {
+                usageDb.close();
+            }
+        }
+
+        boolean diaryWritten;
+        DiaryDbHelper diaryDb = new DiaryDbHelper(this);
+        try {
+            diaryWritten = diaryDb.hasEntry(dayStart);
+        } finally {
+            diaryDb.close();
+        }
+
+        LinearLayout card = panel();
+        addPanelTitle(card, "Today's snapshot");
+
+        LinearLayout firstRow = horizontalRow();
+        firstRow.addView(snapshotMetric(
+                "Money spent",
+                ExpenseDbHelper.formatMoney(spent),
+                "Today",
+                COLOR_RED,
+                null), weightParams());
+        firstRow.addView(snapshotMetric(
+                "Income",
+                ExpenseDbHelper.formatMoney(income),
+                "Net " + signedMoney(net),
+                COLOR_GREEN,
+                null), weightParams());
+        card.addView(firstRow);
+
+        addSpaceTo(card, 10);
+
+        LinearLayout secondRow = horizontalRow();
+        secondRow.addView(snapshotMetric(
+                "Screen time",
+                screenTime,
+                screenTimeDetail,
+                COLOR_TEAL,
+                null), weightParams());
+        secondRow.addView(snapshotMetric(
+                "Diary",
+                diaryWritten ? "Written" : "Not written",
+                diaryWritten ? "Today's entry saved" : "Add today's entry",
+                diaryWritten ? COLOR_GREEN : COLOR_MUTED,
+                null), weightParams());
+        card.addView(secondRow);
+        return card;
+    }
+
+    private LinearLayout snapshotMetric(String label, String value, String detail, int valueColor,
+                                        View.OnClickListener listener) {
+        LinearLayout metric = new LinearLayout(this);
+        metric.setOrientation(LinearLayout.VERTICAL);
+        metric.setPadding(dp(9), dp(8), dp(9), dp(8));
+        metric.setMinimumHeight(dp(76));
+        metric.setBackground(tileBackground(COLOR_FIELD, COLOR_BORDER));
+        if (listener != null) {
+            metric.setOnClickListener(listener);
+        }
+
+        TextView labelView = text(label, 11, COLOR_MUTED, false);
+        styleLabel(labelView);
+        TextView valueView = text(value, 16, valueColor, true);
+        styleCardAmount(valueView);
+        valueView.setPadding(0, dp(3), 0, dp(1));
+        TextView detailView = text(detail, 11, COLOR_MUTED, false);
+        styleLabel(detailView);
+
+        metric.addView(labelView);
+        metric.addView(valueView);
+        metric.addView(detailView);
+        return metric;
+    }
+
+    private String formatUsageDuration(Long millisValue) {
+        long millis = millisValue == null ? 0 : millisValue;
+        if (millis > 0 && millis < 60000L) {
+            return "<1m";
+        }
+        long minutes = Math.max(0, millis / 60000L);
+        long hours = minutes / 60L;
+        long remainingMinutes = minutes % 60L;
+        return hours <= 0 ? remainingMinutes + "m" : hours + "h " + remainingMinutes + "m";
+    }
+
+    private void refreshUsageSnapshot() {
+        if (!UsageTracker.hasUsageAccess(this) || usageSnapshotSyncInProgress) {
+            return;
+        }
+        usageSnapshotSyncInProgress = true;
+        final Context appContext = getApplicationContext();
+        new Thread(() -> {
+            try {
+                UsageTracker.syncRecentDays(appContext, 3);
+            } catch (Throwable ignored) {
+            }
+            runOnUiThread(() -> {
+                usageSnapshotSyncInProgress = false;
+                if (!isFinishing() && !showingExpenseTracker && !showingAppSettings) {
+                    renderHome();
+                }
+            });
+        }).start();
     }
 
     private void renderPersonalOsSettings() {
@@ -3416,6 +3585,170 @@ public class MainActivity extends Activity {
     private void refreshAfterDataChange() {
         ExpenseWidgetProvider.updateAllWidgets(this);
         renderAppShell();
+    }
+
+    private class HomeSwipePager extends FrameLayout {
+        private final int touchSlop;
+        private float downX;
+        private float downY;
+        private float dragOffset;
+        private boolean dragging;
+        private VelocityTracker velocityTracker;
+
+        HomeSwipePager(Context context) {
+            super(context);
+            touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+            setBackgroundColor(COLOR_SCREEN);
+            setContentDescription("Today and Tools. Swipe left or right to change page.");
+        }
+
+        void setPage(int page, boolean animated) {
+            homePage = Math.max(0, Math.min(1, page));
+            int width = getWidth();
+            if (width <= 0 || getChildCount() < 2) {
+                requestLayout();
+                return;
+            }
+            for (int index = 0; index < getChildCount(); index++) {
+                View child = getChildAt(index);
+                float target = (index - homePage) * width;
+                child.animate().cancel();
+                if (animated) {
+                    child.animate()
+                            .translationX(target)
+                            .setDuration(260)
+                            .setInterpolator(new DecelerateInterpolator())
+                            .start();
+                } else {
+                    child.setTranslationX(target);
+                }
+            }
+            dragOffset = 0;
+        }
+
+        @Override
+        protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+            super.onSizeChanged(width, height, oldWidth, oldHeight);
+            setPage(homePage, false);
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    beginGesture(event);
+                    return false;
+                case MotionEvent.ACTION_MOVE:
+                    track(event);
+                    float horizontal = Math.abs(event.getX() - downX);
+                    float vertical = Math.abs(event.getY() - downY);
+                    if (horizontal > touchSlop && horizontal > vertical) {
+                        dragging = true;
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    }
+                    return false;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    endTracking();
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            track(event);
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    beginGesture(event);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float horizontal = event.getX() - downX;
+                    float vertical = event.getY() - downY;
+                    if (!dragging && Math.abs(horizontal) > touchSlop
+                            && Math.abs(horizontal) > Math.abs(vertical)) {
+                        dragging = true;
+                    }
+                    if (dragging) {
+                        dragOffset = constrainedDrag(horizontal);
+                        positionChildren(dragOffset);
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    finishGesture(event, false);
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    finishGesture(event, true);
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        private void beginGesture(MotionEvent event) {
+            for (int index = 0; index < getChildCount(); index++) {
+                getChildAt(index).animate().cancel();
+            }
+            downX = event.getX();
+            downY = event.getY();
+            dragOffset = 0;
+            dragging = false;
+            endTracking();
+            velocityTracker = VelocityTracker.obtain();
+            velocityTracker.addMovement(event);
+        }
+
+        private void track(MotionEvent event) {
+            if (velocityTracker != null) {
+                velocityTracker.addMovement(event);
+            }
+        }
+
+        private float constrainedDrag(float horizontal) {
+            int width = getWidth();
+            if (homePage == 0) {
+                return Math.max(-width, Math.min(0, horizontal));
+            }
+            return Math.max(0, Math.min(width, horizontal));
+        }
+
+        private void positionChildren(float offset) {
+            int width = getWidth();
+            for (int index = 0; index < getChildCount(); index++) {
+                getChildAt(index).setTranslationX((index - homePage) * width + offset);
+            }
+        }
+
+        private void finishGesture(MotionEvent event, boolean cancelled) {
+            float velocityX = 0;
+            if (velocityTracker != null) {
+                velocityTracker.addMovement(event);
+                velocityTracker.computeCurrentVelocity(1000);
+                velocityX = velocityTracker.getXVelocity();
+            }
+
+            int target = homePage;
+            float threshold = getWidth() * 0.2f;
+            if (!cancelled && dragging) {
+                if (homePage == 0 && (dragOffset < -threshold || velocityX < -dp(600))) {
+                    target = 1;
+                } else if (homePage == 1 && (dragOffset > threshold || velocityX > dp(600))) {
+                    target = 0;
+                }
+            }
+            dragging = false;
+            endTracking();
+            setPage(target, true);
+        }
+
+        private void endTracking() {
+            if (velocityTracker != null) {
+                velocityTracker.recycle();
+                velocityTracker = null;
+            }
+        }
     }
 
     private static class AccountTrend {

@@ -49,6 +49,15 @@
         <activity
             android:name=".DiaryActivity"
             android:exported="false" />
+        <activity
+            android:name=".DiaryEntriesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".DiaryHeatmapActivity"
+            android:exported="false" />
+        <activity
+            android:name=".DiaryEntryDetailActivity"
+            android:exported="false" />
         <receiver
             android:name=".UsageSyncReceiver"
             android:exported="false" />
