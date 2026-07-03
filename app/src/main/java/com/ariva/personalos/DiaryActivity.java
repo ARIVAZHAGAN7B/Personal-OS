@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -18,6 +19,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -52,6 +54,7 @@ public class DiaryActivity extends Activity {
     private static final int COLOR_FIELD = Color.rgb(250, 252, 254);
     private static final int COLOR_HEAT_LOW = Color.rgb(211, 239, 241);
     private static final int COLOR_HEAT_MEDIUM = Color.rgb(108, 190, 196);
+    private static final int COLOR_HEAT_STRONG = Color.rgb(45, 166, 171);
     private static final int COLOR_HEAT_HIGH = Color.rgb(0, 110, 130);
 
     private final Calendar selectedDate = Calendar.getInstance();
@@ -123,13 +126,10 @@ public class DiaryActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         if (!detailPage) {
             screen.addView(bottomNavigation(), new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(68)));
+                    ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(78)));
         }
 
-        content.addView(backButton());
-        content.addView(ui.text(pageTitle(), 20, COLOR_NAVY_TEXT, true));
-        content.addView(ui.text(pageSubtitle(), 12, COLOR_MUTED, false));
-        ui.addSpace(content, 14);
+        renderPageHeader();
 
         if (PAGE_ENTRIES.equals(pageType())) {
             renderEntriesPage();
@@ -141,6 +141,137 @@ public class DiaryActivity extends Activity {
             renderEditor();
         }
         setContentView(screen);
+    }
+
+    private void renderPageHeader() {
+        if (PAGE_ENTRIES.equals(pageType())) {
+            renderEntriesHeader();
+            return;
+        }
+        if (PAGE_HEATMAP.equals(pageType())) {
+            renderHeatmapHeader();
+            return;
+        }
+        if (!PAGE_WRITE.equals(pageType())) {
+            content.addView(backButton(), new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+            ui.addSpace(content, 12);
+            content.addView(ui.text(pageTitle(), 25, COLOR_NAVY_TEXT, true));
+            content.addView(ui.text(pageSubtitle(), 13, COLOR_MUTED, false));
+            ui.addSpace(content, 18);
+            return;
+        }
+
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        topRow.addView(backButton(), new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        View headerSpace = new View(this);
+        topRow.addView(headerSpace, new LinearLayout.LayoutParams(0, 1, 1));
+
+        ImageView pen = new ImageView(this);
+        pen.setImageResource(android.R.drawable.ic_menu_edit);
+        pen.setColorFilter(COLOR_TEAL);
+        pen.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12));
+        pen.setBackground(roundedBackground(
+                Color.rgb(229, 244, 246), Color.TRANSPARENT, 14));
+        pen.setContentDescription("Diary");
+        topRow.addView(pen, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        content.addView(topRow);
+        ui.addSpace(content, 18);
+
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout titleColumn = new LinearLayout(this);
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.text("Write diary", 30, COLOR_NAVY_TEXT, true));
+        TextView subtitle = ui.text(pageSubtitle(), 16, COLOR_MUTED, false);
+        subtitle.setPadding(0, ui.dp(5), 0, 0);
+        titleColumn.addView(subtitle);
+        hero.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        ImageView diaryArt = new ImageView(this);
+        diaryArt.setImageResource(R.drawable.ic_diary);
+        diaryArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        diaryArt.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8));
+        diaryArt.setBackground(roundedBackground(
+                Color.rgb(235, 248, 249), Color.TRANSPARENT, 28));
+        hero.addView(diaryArt, new LinearLayout.LayoutParams(ui.dp(100), ui.dp(100)));
+        content.addView(hero);
+        ui.addSpace(content, 18);
+    }
+
+    private void renderHeatmapHeader() {
+        content.addView(backButton(), new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        ui.addSpace(content, 16);
+
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout titleColumn = new LinearLayout(this);
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.text("Diary heatmap", 30, COLOR_NAVY_TEXT, true));
+        TextView subtitle = ui.text("Your writing rhythm,\nmonth by month",
+                15, COLOR_MUTED, false);
+        subtitle.setPadding(0, ui.dp(6), 0, 0);
+        titleColumn.addView(subtitle);
+        hero.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        ImageView diaryArt = new ImageView(this);
+        diaryArt.setImageResource(R.drawable.ic_diary);
+        diaryArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        diaryArt.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8));
+        diaryArt.setBackground(roundedBackground(
+                Color.rgb(235, 248, 249), Color.TRANSPARENT, 30));
+        hero.addView(diaryArt, new LinearLayout.LayoutParams(ui.dp(112), ui.dp(112)));
+        content.addView(hero);
+        ui.addSpace(content, 18);
+    }
+
+    private void renderEntriesHeader() {
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        topRow.addView(backButton(), new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        topRow.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+
+        ImageView filter = new ImageView(this);
+        filter.setImageResource(R.drawable.ic_filter_list);
+        filter.setColorFilter(COLOR_TEAL);
+        filter.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12));
+        filter.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 14));
+        filter.setElevation(ui.dp(2));
+        filter.setContentDescription("Date filters");
+        topRow.addView(filter, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        content.addView(topRow);
+        ui.addSpace(content, 18);
+
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout titleColumn = new LinearLayout(this);
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.text("Diary entries", 30, COLOR_NAVY_TEXT, true));
+        TextView subtitle = ui.text(pageSubtitle(), 16, COLOR_MUTED, false);
+        subtitle.setPadding(0, ui.dp(5), 0, 0);
+        titleColumn.addView(subtitle);
+        hero.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        ImageView diaryArt = new ImageView(this);
+        diaryArt.setImageResource(R.drawable.ic_diary);
+        diaryArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        diaryArt.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8));
+        diaryArt.setBackground(roundedBackground(
+                Color.rgb(235, 248, 249), Color.TRANSPARENT, 28));
+        hero.addView(diaryArt, new LinearLayout.LayoutParams(ui.dp(100), ui.dp(100)));
+        content.addView(hero);
+        ui.addSpace(content, 18);
     }
 
     private String pageTitle() {
@@ -165,23 +296,38 @@ public class DiaryActivity extends Activity {
         long date = selectedDate.getTimeInMillis();
         boolean hasEntry = db.hasEntry(date);
         LinearLayout panel = ui.panel();
-        panel.addView(ui.sectionTitle(hasEntry ? "Edit entry" : "New entry"));
+        panel.setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(18));
+        panel.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 24));
+        panel.setElevation(ui.dp(5));
+
+        TextView sectionTitle = ui.text(hasEntry ? "Edit entry" : "New entry",
+                18, COLOR_TEAL, true);
+        panel.addView(sectionTitle);
+        View underline = new View(this);
+        underline.setBackgroundColor(COLOR_TEAL);
+        LinearLayout.LayoutParams underlineParams =
+                new LinearLayout.LayoutParams(ui.dp(42), ui.dp(4));
+        underlineParams.setMargins(0, ui.dp(7), 0, ui.dp(18));
+        panel.addView(underline, underlineParams);
         panel.addView(dateNavigator());
-        ui.addSpace(panel, 12);
+        ui.addSpace(panel, 16);
 
         bodyInput = new EditText(this);
         bodyInput.setText(db.getEntry(date));
-        bodyInput.setHint("Write about your day");
+        bodyInput.setHint("Write about your day...");
         bodyInput.setTextSize(16);
         bodyInput.setTextColor(COLOR_NAVY_TEXT);
         bodyInput.setHintTextColor(Color.rgb(139, 153, 166));
         bodyInput.setGravity(Gravity.TOP | Gravity.LEFT);
-        bodyInput.setMinHeight(ui.dp(280));
-        bodyInput.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10));
-        bodyInput.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        bodyInput.setMinHeight(ui.dp(330));
+        bodyInput.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
+        bodyInput.setCompoundDrawablesWithIntrinsicBounds(
+                android.R.drawable.ic_menu_edit, 0, 0, 0);
+        bodyInput.setCompoundDrawablePadding(ui.dp(9));
+        bodyInput.setBackground(roundedBackground(COLOR_FIELD, COLOR_BORDER, 16));
         panel.addView(bodyInput, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        ui.addSpace(panel, 6);
+        ui.addSpace(panel, 8);
 
         TextView characterCount = ui.text(
                 bodyInput.getText().length() + " characters", 11, COLOR_MUTED, false);
@@ -201,20 +347,23 @@ public class DiaryActivity extends Activity {
             public void afterTextChanged(Editable editable) {
             }
         });
-        ui.addSpace(panel, 8);
+        ui.addSpace(panel, 14);
 
-        LinearLayout actions = ui.horizontalRow();
-        actions.addView(ui.actionButton(hasEntry ? "Update entry" : "Save entry", v -> saveEntry()),
-                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button save = ui.actionButton(hasEntry ? "Update entry" : "Save entry", v -> saveEntry());
+        save.setTextSize(16);
+        save.setMinHeight(ui.dp(54));
+        save.setBackground(roundedBackground(COLOR_TEAL, Color.TRANSPARENT, 16));
+        panel.addView(save, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(54)));
         if (hasEntry) {
             Button delete = ui.actionButton("Delete", v -> confirmDelete(false));
-            delete.setBackground(ui.tileBackground(COLOR_RED, Color.TRANSPARENT));
+            delete.setTextColor(COLOR_RED);
+            delete.setBackground(roundedBackground(Color.WHITE, COLOR_RED, 14));
             LinearLayout.LayoutParams deleteParams =
-                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-            deleteParams.setMargins(ui.dp(8), 0, 0, 0);
-            actions.addView(delete, deleteParams);
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(48));
+            deleteParams.setMargins(0, ui.dp(10), 0, 0);
+            panel.addView(delete, deleteParams);
         }
-        panel.addView(actions);
         content.addView(panel);
     }
 
@@ -225,32 +374,32 @@ public class DiaryActivity extends Activity {
 
         Button previous = dateArrowButton("<", "Previous day");
         previous.setOnClickListener(v -> moveSelectedDate(-1));
-        row.addView(previous, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(48)));
+        row.addView(previous, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(54)));
 
         Button date = new Button(this);
-        date.setText(navigationDateFormat.format(selectedDate.getTime()));
+        date.setText(navigationDateFormat.format(selectedDate.getTime()) +
+                "\n" + selectedDateContext());
         date.setTextSize(13);
         date.setTextColor(COLOR_NAVY_TEXT);
         date.setAllCaps(false);
-        date.setSingleLine(true);
-        date.setEllipsize(TextUtils.TruncateAt.END);
+        date.setGravity(Gravity.CENTER);
         date.setCompoundDrawablesWithIntrinsicBounds(
                 android.R.drawable.ic_menu_my_calendar, 0, 0, 0);
         date.setCompoundDrawablePadding(ui.dp(6));
-        date.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        date.setBackground(roundedBackground(COLOR_FIELD, COLOR_BORDER, 14));
         date.setOnClickListener(v -> showDatePicker(selectedDate.getTimeInMillis(), value -> {
             selectedDate.setTimeInMillis(value);
             normalize(selectedDate);
             render();
         }));
         LinearLayout.LayoutParams dateParams =
-                new LinearLayout.LayoutParams(0, ui.dp(48), 1);
+                new LinearLayout.LayoutParams(0, ui.dp(62), 1);
         dateParams.setMargins(ui.dp(8), 0, ui.dp(8), 0);
         row.addView(date, dateParams);
 
         Button next = dateArrowButton(">", "Next day");
         next.setOnClickListener(v -> moveSelectedDate(1));
-        row.addView(next, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(48)));
+        row.addView(next, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(54)));
         return row;
     }
 
@@ -260,19 +409,23 @@ public class DiaryActivity extends Activity {
         button.setTextSize(18);
         button.setTextColor(COLOR_TEAL);
         button.setContentDescription(description);
-        button.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        button.setBackground(roundedBackground(COLOR_FIELD, COLOR_BORDER, 14));
         button.setPadding(0, 0, 0, 0);
+        button.setElevation(ui.dp(2));
         return button;
     }
 
     private void renderEntriesPage() {
         renderEntryFilters();
-        ui.addSpace(content, 14);
+        ui.addSpace(content, 18);
 
         LinearLayout panel = ui.panel();
+        panel.setPadding(ui.dp(14), ui.dp(16), ui.dp(14), ui.dp(16));
+        panel.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 24));
+        panel.setElevation(ui.dp(4));
         LinearLayout header = ui.horizontalRow();
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = ui.sectionTitle("All entries");
+        TextView title = ui.text("All entries", 20, COLOR_NAVY_TEXT, true);
         header.addView(title, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         Button sort = compactButton(newestFirst ? "Newest first" : "Oldest first", false);
@@ -282,6 +435,7 @@ public class DiaryActivity extends Activity {
         });
         header.addView(sort);
         panel.addView(header);
+        ui.addSpace(panel, 14);
 
         Cursor cursor = db.getEntries(filterStart, filterEnd, newestFirst);
         try {
@@ -310,7 +464,17 @@ public class DiaryActivity extends Activity {
 
     private void renderEntryFilters() {
         LinearLayout panel = ui.panel();
-        panel.addView(ui.sectionTitle("Filter by date"));
+        panel.setPadding(ui.dp(16), ui.dp(16), ui.dp(16), ui.dp(16));
+        panel.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 24));
+        panel.setElevation(ui.dp(4));
+
+        TextView title = ui.text("Filter by date", 18, COLOR_NAVY_TEXT, true);
+        title.setCompoundDrawablesWithIntrinsicBounds(
+                android.R.drawable.ic_menu_my_calendar, 0, 0, 0);
+        title.setCompoundDrawablePadding(ui.dp(9));
+        title.setCompoundDrawableTintList(ColorStateList.valueOf(COLOR_TEAL));
+        panel.addView(title);
+        ui.addSpace(panel, 16);
 
         LinearLayout quickRow = ui.horizontalRow();
         quickRow.addView(quickFilterButton("All", FILTER_ALL), ui.weightParams());
@@ -321,9 +485,9 @@ public class DiaryActivity extends Activity {
         ui.addSpace(panel, 10);
 
         LinearLayout customRow = ui.horizontalRow();
-        Button from = compactButton(
-                filterStart > 0 ? "From " + shortDateFormat.format(new Date(filterStart)) : "From date",
-                FILTER_CUSTOM.equals(activeFilter));
+        Button from = dateRangeButton(
+                "From date",
+                filterStart > 0 ? shortDateFormat.format(new Date(filterStart)) : "Select date");
         from.setOnClickListener(v -> showDatePicker(
                 filterStart > 0 ? filterStart : System.currentTimeMillis(),
                 value -> {
@@ -339,9 +503,9 @@ public class DiaryActivity extends Activity {
         long displayedEnd = filterEnd > 0
                 ? filterEnd - 24L * 60L * 60L * 1000L
                 : System.currentTimeMillis();
-        Button to = compactButton(
-                filterEnd > 0 ? "To " + shortDateFormat.format(new Date(displayedEnd)) : "To date",
-                FILTER_CUSTOM.equals(activeFilter));
+        Button to = dateRangeButton(
+                "To date",
+                filterEnd > 0 ? shortDateFormat.format(new Date(displayedEnd)) : "Select date");
         to.setOnClickListener(v -> showDatePicker(displayedEnd, value -> {
             filterEnd = value + 24L * 60L * 60L * 1000L;
             if (filterStart <= 0 || filterStart >= filterEnd) {
@@ -353,6 +517,22 @@ public class DiaryActivity extends Activity {
         customRow.addView(to, ui.weightParams());
         panel.addView(customRow);
         content.addView(panel);
+    }
+
+    private Button dateRangeButton(String label, String value) {
+        Button button = new Button(this);
+        button.setText(label + "\n" + value);
+        button.setAllCaps(false);
+        button.setTextSize(12);
+        button.setTextColor(COLOR_MUTED);
+        button.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        button.setCompoundDrawablesWithIntrinsicBounds(
+                android.R.drawable.ic_menu_my_calendar, 0, 0, 0);
+        button.setCompoundDrawablePadding(ui.dp(7));
+        button.setBackground(roundedBackground(COLOR_FIELD, COLOR_BORDER, 14));
+        button.setMinHeight(ui.dp(66));
+        button.setPadding(ui.dp(10), ui.dp(6), ui.dp(10), ui.dp(6));
+        return button;
     }
 
     private Button quickFilterButton(String label, String filter) {
@@ -373,8 +553,9 @@ public class DiaryActivity extends Activity {
         button.setBackground(ui.tileBackground(
                 selected ? COLOR_TEAL : COLOR_FIELD,
                 selected ? Color.TRANSPARENT : COLOR_BORDER));
-        button.setMinHeight(ui.dp(42));
+        button.setMinHeight(ui.dp(48));
         button.setPadding(ui.dp(7), ui.dp(4), ui.dp(7), ui.dp(4));
+        button.setElevation(selected ? ui.dp(2) : 0);
         return button;
     }
 
@@ -411,36 +592,56 @@ public class DiaryActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(ui.dp(10), ui.dp(9), ui.dp(10), ui.dp(9));
-        row.setBackground(ui.tileBackground(COLOR_FIELD, COLOR_BORDER));
+        row.setPadding(0, ui.dp(10), ui.dp(10), ui.dp(10));
+        row.setBackground(roundedBackground(COLOR_FIELD, COLOR_BORDER, 18));
+        row.setElevation(ui.dp(1));
+
+        View accent = new View(this);
+        accent.setBackgroundColor(COLOR_TEAL);
+        LinearLayout.LayoutParams accentParams =
+                new LinearLayout.LayoutParams(ui.dp(4), ui.dp(86));
+        accentParams.setMargins(0, 0, ui.dp(9), 0);
+        row.addView(accent, accentParams);
 
         LinearLayout badge = new LinearLayout(this);
         badge.setOrientation(LinearLayout.VERTICAL);
         badge.setGravity(Gravity.CENTER);
-        badge.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
-        badge.addView(centeredText(dayNumberFormat.format(new Date(entryDate)), 16, COLOR_TEAL, true));
+        badge.setBackground(roundedBackground(
+                Color.rgb(235, 248, 249), Color.TRANSPARENT, 16));
+        badge.addView(centeredText(dayNumberFormat.format(new Date(entryDate)), 23, COLOR_TEAL, true));
         badge.addView(centeredText(
                 monthFormat.format(new Date(entryDate)).toUpperCase(Locale.US),
-                10, COLOR_MUTED, true));
-        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(ui.dp(50), ui.dp(52));
-        badgeParams.setMargins(0, 0, ui.dp(10), 0);
+                11, COLOR_NAVY_TEXT, true));
+        badge.addView(centeredText(weekdayFormat.format(new Date(entryDate)),
+                10, COLOR_MUTED, false));
+        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(ui.dp(70), ui.dp(86));
+        badgeParams.setMargins(0, 0, ui.dp(12), 0);
         row.addView(badge, badgeParams);
 
         LinearLayout textColumn = new LinearLayout(this);
         textColumn.setOrientation(LinearLayout.VERTICAL);
-        textColumn.addView(ui.text(weekdayFormat.format(new Date(entryDate)), 14, COLOR_NAVY_TEXT, true));
-        TextView bodyPreview = ui.text(preview(body), 12, COLOR_MUTED, false);
-        bodyPreview.setSingleLine(true);
+        TextView entryTitle = ui.text(entryTitle(body), 15, COLOR_NAVY_TEXT, true);
+        entryTitle.setSingleLine(true);
+        entryTitle.setEllipsize(TextUtils.TruncateAt.END);
+        textColumn.addView(entryTitle);
+        TextView bodyPreview = ui.text(entryPreview(body), 12, COLOR_MUTED, false);
+        bodyPreview.setMaxLines(2);
         bodyPreview.setEllipsize(TextUtils.TruncateAt.END);
+        bodyPreview.setPadding(0, ui.dp(3), 0, ui.dp(4));
         textColumn.addView(bodyPreview);
-        textColumn.addView(ui.text("Updated " + updatedFormat.format(new Date(updatedAt)),
-                10, COLOR_MUTED, false));
+        TextView updated = ui.text("◷  Updated " + updatedFormat.format(new Date(updatedAt)),
+                10, COLOR_MUTED, false);
+        textColumn.addView(updated);
         row.addView(textColumn, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        TextView arrow = ui.text(">", 18, COLOR_TEAL, true);
+        TextView arrow = ui.text("›", 26, COLOR_NAVY_TEXT, false);
         arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(36)));
+        arrow.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 24));
+        LinearLayout.LayoutParams arrowParams =
+                new LinearLayout.LayoutParams(ui.dp(42), ui.dp(42));
+        arrowParams.setMargins(ui.dp(8), 0, 0, 0);
+        row.addView(arrow, arrowParams);
         row.setOnClickListener(v -> openEntry(entryDate));
         return row;
     }
@@ -499,20 +700,39 @@ public class DiaryActivity extends Activity {
     }
 
     private void renderHeatmapPage() {
-        LinearLayout intro = ui.panel();
-        intro.addView(ui.text("Scroll horizontally to explore months. Tap a day to read or write.",
-                13, COLOR_MUTED, false));
-        ui.addSpace(intro, 10);
+        LinearLayout intro = new LinearLayout(this);
+        intro.setOrientation(LinearLayout.HORIZONTAL);
+        intro.setGravity(Gravity.CENTER_VERTICAL);
+        intro.setPadding(ui.dp(16), ui.dp(15), ui.dp(16), ui.dp(15));
+        intro.setBackground(roundedBackground(
+                Color.rgb(239, 249, 250), Color.rgb(211, 239, 241), 20));
+        intro.setElevation(ui.dp(2));
+
+        TextView sparkle = centeredText("✦", 24, COLOR_TEAL, true);
+        sparkle.setBackground(roundedBackground(
+                Color.rgb(224, 245, 246), Color.TRANSPARENT, 28));
+        LinearLayout.LayoutParams sparkleParams =
+                new LinearLayout.LayoutParams(ui.dp(54), ui.dp(54));
+        sparkleParams.setMargins(0, 0, ui.dp(14), 0);
+        intro.addView(sparkle, sparkleParams);
+        intro.addView(ui.text(
+                "Scroll horizontally to explore months.\nTap a day to read or write.",
+                14, COLOR_NAVY_TEXT, false), new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        content.addView(intro);
+        ui.addSpace(content, 18);
+
         LinearLayout legend = ui.horizontalRow();
-        legend.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        legend.setGravity(Gravity.CENTER);
         legend.addView(ui.text("Less", 11, COLOR_MUTED, false));
+        legend.addView(legendSwatch(COLOR_FIELD));
         legend.addView(legendSwatch(COLOR_HEAT_LOW));
         legend.addView(legendSwatch(COLOR_HEAT_MEDIUM));
+        legend.addView(legendSwatch(COLOR_HEAT_STRONG));
         legend.addView(legendSwatch(COLOR_HEAT_HIGH));
         legend.addView(ui.text("More writing", 11, COLOR_MUTED, false));
-        intro.addView(legend);
-        content.addView(intro);
-        ui.addSpace(content, 14);
+        content.addView(legend);
+        ui.addSpace(content, 18);
 
         HorizontalScrollView horizontal = new HorizontalScrollView(this);
         horizontal.setHorizontalScrollBarEnabled(false);
@@ -548,7 +768,7 @@ public class DiaryActivity extends Activity {
         Calendar cursorMonth = (Calendar) startMonth.clone();
         while (!cursorMonth.after(endMonth)) {
             Calendar month = (Calendar) cursorMonth.clone();
-            LinearLayout card = monthHeatmapCard(month, cardWidth);
+            LinearLayout card = monthHeatmapCard(month, cardWidth, horizontal);
             LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
                     cardWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
             cardParams.setMargins(0, 0, ui.dp(12), 0);
@@ -566,7 +786,8 @@ public class DiaryActivity extends Activity {
         });
     }
 
-    private LinearLayout monthHeatmapCard(Calendar month, int cardWidth) {
+    private LinearLayout monthHeatmapCard(
+            Calendar month, int cardWidth, HorizontalScrollView horizontal) {
         long monthStart = month.getTimeInMillis();
         Calendar nextMonth = (Calendar) month.clone();
         nextMonth.add(Calendar.MONTH, 1);
@@ -585,26 +806,50 @@ public class DiaryActivity extends Activity {
 
         LinearLayout panel = ui.panel();
         panel.setMinimumWidth(cardWidth);
-        panel.addView(ui.text(monthYearFormat.format(month.getTime()),
-                17, COLOR_NAVY_TEXT, true));
-        panel.addView(ui.text(
+        panel.setPadding(ui.dp(16), ui.dp(16), ui.dp(16), ui.dp(18));
+        panel.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 24));
+        panel.setElevation(ui.dp(4));
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout titleColumn = new LinearLayout(this);
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.text(monthYearFormat.format(month.getTime()),
+                21, COLOR_NAVY_TEXT, true));
+        titleColumn.addView(ui.text(
                 activity.size() + (activity.size() == 1 ? " written day" : " written days"),
                 12, COLOR_MUTED, false));
-        ui.addSpace(panel, 10);
+        header.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        Button previous = dateArrowButton("<", "Previous month");
+        previous.setOnClickListener(v -> horizontal.smoothScrollBy(
+                -(cardWidth + ui.dp(12)), 0));
+        header.addView(previous, new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)));
+        Button next = dateArrowButton(">", "Next month");
+        next.setOnClickListener(v -> horizontal.smoothScrollBy(
+                cardWidth + ui.dp(12), 0));
+        LinearLayout.LayoutParams nextParams =
+                new LinearLayout.LayoutParams(ui.dp(46), ui.dp(46));
+        nextParams.setMargins(ui.dp(8), 0, 0, 0);
+        header.addView(next, nextParams);
+        panel.addView(header);
+        ui.addSpace(panel, 16);
 
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(7);
         String[] weekdays = new String[]{"M", "T", "W", "T", "F", "S", "S"};
-        int cellWidth = Math.max(ui.dp(34), (cardWidth - ui.dp(28)) / 7);
+        int cellWidth = Math.max(ui.dp(34), (cardWidth - ui.dp(36)) / 7);
         for (String weekday : weekdays) {
             TextView label = centeredText(weekday, 10, COLOR_MUTED, true);
-            grid.addView(label, new ViewGroup.LayoutParams(cellWidth, ui.dp(26)));
+            grid.addView(label, new ViewGroup.LayoutParams(cellWidth, ui.dp(30)));
         }
 
         Calendar firstDay = (Calendar) month.clone();
         int leading = (firstDay.get(Calendar.DAY_OF_WEEK) + 5) % 7;
         for (int index = 0; index < leading; index++) {
-            grid.addView(new View(this), new ViewGroup.LayoutParams(cellWidth, ui.dp(40)));
+            grid.addView(new View(this), new ViewGroup.LayoutParams(cellWidth, ui.dp(46)));
         }
         int daysInMonth = month.getActualMaximum(Calendar.DAY_OF_MONTH);
         for (int day = 1; day <= daysInMonth; day++) {
@@ -616,13 +861,13 @@ public class DiaryActivity extends Activity {
             TextView cell = heatmapDayCell(day, dateStart, characters == null ? 0 : characters);
             GridLayout.LayoutParams cellParams = new GridLayout.LayoutParams();
             cellParams.width = Math.max(ui.dp(24), cellWidth - ui.dp(4));
-            cellParams.height = ui.dp(36);
+            cellParams.height = ui.dp(42);
             cellParams.setMargins(ui.dp(2), ui.dp(2), ui.dp(2), ui.dp(2));
             grid.addView(cell, cellParams);
         }
         int usedCells = leading + daysInMonth;
         for (int index = usedCells; index < 42; index++) {
-            grid.addView(new View(this), new ViewGroup.LayoutParams(cellWidth, ui.dp(40)));
+            grid.addView(new View(this), new ViewGroup.LayoutParams(cellWidth, ui.dp(46)));
         }
         panel.addView(grid);
         return panel;
@@ -635,8 +880,11 @@ public class DiaryActivity extends Activity {
         if (characters > 0 && characters < 250) {
             fill = COLOR_HEAT_LOW;
             textColor = COLOR_NAVY_TEXT;
-        } else if (characters < 750 && characters > 0) {
+        } else if (characters > 0 && characters < 750) {
             fill = COLOR_HEAT_MEDIUM;
+            textColor = COLOR_NAVY_TEXT;
+        } else if (characters > 0 && characters < 1500) {
+            fill = COLOR_HEAT_STRONG;
             textColor = COLOR_NAVY_TEXT;
         } else if (characters > 0) {
             fill = COLOR_HEAT_HIGH;
@@ -644,7 +892,8 @@ public class DiaryActivity extends Activity {
         }
         boolean today = UsageRange.startOfDay(System.currentTimeMillis()) == dateStart;
         TextView cell = centeredText(String.valueOf(day), 12, textColor, hasEntry);
-        cell.setBackground(ui.tileBackground(fill, today ? COLOR_TEAL : Color.TRANSPARENT));
+        cell.setBackground(roundedBackground(
+                fill, today ? COLOR_TEAL : Color.TRANSPARENT, 12));
         cell.setContentDescription(shortDateFormat.format(new Date(dateStart)) +
                 (hasEntry ? ", diary entry saved" : ", no diary entry"));
         cell.setOnClickListener(v -> {
@@ -659,9 +908,10 @@ public class DiaryActivity extends Activity {
 
     private View legendSwatch(int color) {
         View swatch = new View(this);
-        swatch.setBackground(ui.tileBackground(color, Color.TRANSPARENT));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ui.dp(13), ui.dp(13));
-        params.setMargins(ui.dp(5), 0, 0, 0);
+        swatch.setBackground(roundedBackground(
+                color, color == COLOR_FIELD ? COLOR_HEAT_LOW : Color.TRANSPARENT, 6));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ui.dp(24), ui.dp(24));
+        params.setMargins(ui.dp(6), 0, 0, 0);
         swatch.setLayoutParams(params);
         return swatch;
     }
@@ -670,11 +920,11 @@ public class DiaryActivity extends Activity {
         LinearLayout navigation = new LinearLayout(this);
         navigation.setOrientation(LinearLayout.HORIZONTAL);
         navigation.setGravity(Gravity.CENTER);
-        navigation.setPadding(ui.dp(6), ui.dp(4), ui.dp(6), ui.dp(4));
-        navigation.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
+        navigation.setPadding(ui.dp(8), ui.dp(7), ui.dp(8), ui.dp(7));
+        navigation.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 20));
         navigation.setElevation(ui.dp(8));
         navigation.addView(navItem(
-                "Write", R.drawable.ic_nav_add, PAGE_WRITE, DiaryActivity.class), navItemParams());
+                "Write", android.R.drawable.ic_menu_edit, PAGE_WRITE, DiaryActivity.class), navItemParams());
         navigation.addView(navItem(
                 "Entries", R.drawable.ic_nav_transactions, PAGE_ENTRIES, DiaryEntriesActivity.class), navItemParams());
         navigation.addView(navItem(
@@ -690,10 +940,11 @@ public class DiaryActivity extends Activity {
         item.setGravity(Gravity.CENTER);
         item.setCompoundDrawablesWithIntrinsicBounds(0, iconResource, 0, 0);
         item.setCompoundDrawableTintList(ColorStateList.valueOf(color));
-        item.setCompoundDrawablePadding(ui.dp(3));
-        item.setBackground(ui.tileBackground(
+        item.setCompoundDrawablePadding(ui.dp(4));
+        item.setMinHeight(ui.dp(60));
+        item.setBackground(roundedBackground(
                 selected ? Color.rgb(229, 244, 246) : Color.TRANSPARENT,
-                Color.TRANSPARENT));
+                Color.TRANSPARENT, 18));
         item.setContentDescription(label + (selected ? ", selected" : ""));
         item.setEnabled(!selected);
         item.setOnClickListener(v -> {
@@ -758,12 +1009,38 @@ public class DiaryActivity extends Activity {
     }
 
     private TextView backButton() {
-        TextView back = ui.text("<", 24, COLOR_TEAL, true);
-        back.setGravity(Gravity.LEFT);
-        back.setMinHeight(ui.dp(32));
+        TextView back = ui.text("‹", 34, COLOR_NAVY_TEXT, false);
+        back.setGravity(Gravity.CENTER);
+        back.setBackground(roundedBackground(Color.WHITE, COLOR_BORDER, 14));
+        back.setElevation(ui.dp(2));
         back.setContentDescription("Back");
         back.setOnClickListener(v -> finish());
         return back;
+    }
+
+    private String selectedDateContext() {
+        long selected = UsageRange.startOfDay(selectedDate.getTimeInMillis());
+        long today = UsageRange.startOfDay(System.currentTimeMillis());
+        if (selected == today) {
+            return "Today";
+        }
+        if (selected == today - UsageRange.DAY_MS) {
+            return "Yesterday";
+        }
+        if (selected == today + UsageRange.DAY_MS) {
+            return "Tomorrow";
+        }
+        return "Choose date";
+    }
+
+    private GradientDrawable roundedBackground(int fill, int stroke, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fill);
+        drawable.setCornerRadius(ui.dp(radiusDp));
+        if (stroke != Color.TRANSPARENT) {
+            drawable.setStroke(ui.dp(1), stroke);
+        }
+        return drawable;
     }
 
     private TextView centeredText(String value, int size, int color, boolean bold) {
@@ -806,6 +1083,31 @@ public class DiaryActivity extends Activity {
     private String preview(String body) {
         String normalized = body.replace('\n', ' ').replace('\r', ' ').trim();
         return normalized.length() <= 90 ? normalized : normalized.substring(0, 90) + "...";
+    }
+
+    private String entryTitle(String body) {
+        String normalized = body == null ? "" : body.trim();
+        if (normalized.isEmpty()) {
+            return "Untitled entry";
+        }
+        int lineBreak = normalized.indexOf('\n');
+        String firstLine = lineBreak >= 0 ? normalized.substring(0, lineBreak).trim() : normalized;
+        if (firstLine.length() <= 36) {
+            return firstLine;
+        }
+        return firstLine.substring(0, 36).trim() + "...";
+    }
+
+    private String entryPreview(String body) {
+        String normalized = body == null ? "" : body.trim();
+        int lineBreak = normalized.indexOf('\n');
+        if (lineBreak >= 0 && lineBreak + 1 < normalized.length()) {
+            String remaining = normalized.substring(lineBreak + 1).trim();
+            if (!remaining.isEmpty()) {
+                return preview(remaining);
+            }
+        }
+        return preview(normalized);
     }
 
     private interface DateSelectionListener {
