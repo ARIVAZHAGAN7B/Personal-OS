@@ -1,8 +1,8 @@
 {
-    "versionCode":  6,
-    "versionName":  "1.5.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.5.0/PersonalOS-1.5.0.apk",
+    "versionCode":  7,
+    "versionName":  "1.6.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.6.0/PersonalOS-1.6.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Introduces a multipage Digital Tracker with a focused daily usage home, dedicated app detail screens, combined weekly and monthly analytics, and a separate settings page.",
-    "sha256":  "1D53BEC3B8AFFDFAD6AF22A0977D35E8D45DE149145A8B8629E1EC4B5A7387E5"
+    "releaseNotes":  "Adds interactive weekly and monthly screen-time bar charts, category pie charts, and day-by-day usage drill-down pages with per-app, hourly, frequency, and category details.",
+    "sha256":  "9DE0A9115880638EFD0865FD90F1B4C11AC01AFB4B0FA043DD7BCB0E5DD2CD9B"
 }
