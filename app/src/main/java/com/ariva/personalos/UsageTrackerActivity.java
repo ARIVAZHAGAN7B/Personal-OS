@@ -29,6 +29,13 @@ import java.util.Locale;
 import java.util.Map;
 
 public class UsageTrackerActivity extends Activity {
+    static final String EXTRA_PACKAGE_NAME = "package_name";
+    static final String EXTRA_APP_NAME = "app_name";
+    static final String EXTRA_CATEGORY = "category";
+    private static final String PAGE_HOME = "home";
+    private static final String PAGE_ANALYTICS = "analytics";
+    private static final String PAGE_SETTINGS = "settings";
+    private static final String PAGE_APP_DETAIL = "app_detail";
     private static final int COLOR_NAVY_TEXT = Color.rgb(13, 34, 54);
     private static final int COLOR_MUTED = Color.rgb(91, 107, 123);
     private static final int COLOR_TEAL = Color.rgb(0, 110, 130);
@@ -59,6 +66,11 @@ public class UsageTrackerActivity extends Activity {
         db = new UsageDbHelper(this);
         ui = new AppUi(this);
         hideSystemApps = preferences().getBoolean("hide_system_apps", true);
+        if (PAGE_APP_DETAIL.equals(pageType())) {
+            selectedPackageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
+            selectedAppName = getIntent().getStringExtra(EXTRA_APP_NAME);
+            selectedCategory = getIntent().getStringExtra(EXTRA_CATEGORY);
+        }
         UsageSyncScheduler.schedule(this);
         render();
         startSync(60, false);
@@ -82,12 +94,11 @@ public class UsageTrackerActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (selectedPackageName != null) {
-            clearSelectedApp();
-            render();
-            return;
-        }
         super.onBackPressed();
+    }
+
+    protected String pageType() {
+        return PAGE_HOME;
     }
 
     private void render() {
@@ -103,43 +114,139 @@ public class UsageTrackerActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         content.addView(mainPageBack());
-        content.addView(ui.text("Digital tracker", 20, COLOR_NAVY_TEXT, true));
+        content.addView(ui.text(pageTitle(), 20, COLOR_NAVY_TEXT, true));
         content.addView(ui.text(new SimpleDateFormat("EEEE, dd MMMM", Locale.getDefault()).format(new Date()),
                 12, COLOR_MUTED, false));
         ui.addSpace(content, 14);
 
-        if (!UsageTracker.hasUsageAccess(this)) {
+        if (PAGE_APP_DETAIL.equals(pageType())) {
+            if (!UsageTracker.hasUsageAccess(this)) {
+                renderPermissionPanel();
+                setContentView(scrollView);
+                return;
+            }
+            renderAppDetailPage();
+            setContentView(scrollView);
+            return;
+        }
+
+        renderPageNavigation();
+        ui.addSpace(content, 14);
+        if (!UsageTracker.hasUsageAccess(this) && !PAGE_SETTINGS.equals(pageType())) {
             renderPermissionPanel();
             setContentView(scrollView);
             return;
         }
+        if (PAGE_SETTINGS.equals(pageType())) {
+            renderActions();
+        } else if (PAGE_ANALYTICS.equals(pageType())) {
+            renderAnalyticsPage();
+        } else {
+            renderHomePage();
+        }
+        setContentView(scrollView);
+    }
 
-        renderActions();
+    private String pageTitle() {
+        if (PAGE_ANALYTICS.equals(pageType())) return "Usage analytics";
+        if (PAGE_SETTINGS.equals(pageType())) return "Tracker settings";
+        if (PAGE_APP_DETAIL.equals(pageType())) return "App details";
+        return "Digital tracker";
+    }
+
+    private void renderHomePage() {
+        selectedTab = TAB_TODAY;
+        UsageRange today = UsageRange.today();
+        renderSummary(today);
         ui.addSpace(content, 14);
-        renderTabs();
-        ui.addSpace(content, 12);
+        renderTopApps(today);
+        ui.addSpace(content, 14);
+        renderFrequentOpenWarnings(today);
+        ui.addSpace(content, 14);
+        renderHourlyBreakdown(today.start);
+        ui.addSpace(content, 14);
+        renderCategoryBreakdown(today);
+    }
 
-        UsageRange range = selectedRange();
-        if (selectedPackageName != null) {
-            renderAppDetail(range);
-            setContentView(scrollView);
+    private void renderAnalyticsPage() {
+        selectedTab = TAB_WEEK;
+        content.addView(ui.text("This week", 18, COLOR_NAVY_TEXT, true));
+        ui.addSpace(content, 8);
+        UsageRange week = UsageRange.thisWeek();
+        renderSummary(week);
+        ui.addSpace(content, 14);
+        renderCategoryBreakdown(week);
+        ui.addSpace(content, 14);
+        renderBestWorstDays(week);
+        ui.addSpace(content, 22);
+
+        selectedTab = TAB_MONTH;
+        content.addView(ui.text("This month", 18, COLOR_NAVY_TEXT, true));
+        ui.addSpace(content, 8);
+        UsageRange month = UsageRange.thisMonth();
+        renderSummary(month);
+        ui.addSpace(content, 14);
+        renderCategoryBreakdown(month);
+        ui.addSpace(content, 14);
+        renderBestWorstDays(month);
+    }
+
+    private void renderAppDetailPage() {
+        if (selectedPackageName == null || selectedPackageName.trim().isEmpty()) {
+            content.addView(ui.text("App details are unavailable.", 14, COLOR_MUTED, false));
             return;
         }
+        renderAppDetailHeader();
+        ui.addSpace(content, 14);
 
-        renderSummary(range);
+        selectedTab = TAB_TODAY;
+        content.addView(ui.text("Today", 18, COLOR_NAVY_TEXT, true));
+        ui.addSpace(content, 8);
+        renderAppDetailSummary(UsageRange.today());
         ui.addSpace(content, 14);
-        renderTopApps(range);
+        renderUsageLimitControls();
+        ui.addSpace(content, 22);
+
+        selectedTab = TAB_WEEK;
+        content.addView(ui.text("This week", 18, COLOR_NAVY_TEXT, true));
+        ui.addSpace(content, 8);
+        renderAppDetailSummary(UsageRange.thisWeek());
         ui.addSpace(content, 14);
-        renderFrequentOpenWarnings(range);
+        renderAppTrend(UsageRange.thisWeek());
+        ui.addSpace(content, 22);
+
+        selectedTab = TAB_MONTH;
+        content.addView(ui.text("This month", 18, COLOR_NAVY_TEXT, true));
+        ui.addSpace(content, 8);
+        renderAppDetailSummary(UsageRange.thisMonth());
         ui.addSpace(content, 14);
-        if (TAB_TODAY.equals(selectedTab)) {
-            renderHourlyBreakdown(range.start);
-            ui.addSpace(content, 14);
-        }
-        renderCategoryBreakdown(range);
-        ui.addSpace(content, 14);
-        renderBestWorstDays(range);
-        setContentView(scrollView);
+        renderAppTrend(UsageRange.thisMonth());
+    }
+
+    private void renderPageNavigation() {
+        LinearLayout row = ui.horizontalRow();
+        row.addView(pageButton("Today", PAGE_HOME, UsageTrackerActivity.class), ui.weightParams());
+        row.addView(pageButton("Analytics", PAGE_ANALYTICS, UsageAnalyticsActivity.class), ui.weightParams());
+        row.addView(pageButton("Settings", PAGE_SETTINGS, UsageSettingsActivity.class), ui.weightParams());
+        content.addView(row);
+    }
+
+    private Button pageButton(String label, String page, final Class<? extends Activity> destination) {
+        boolean selected = page.equals(pageType());
+        Button button = new Button(this);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setTextColor(selected ? Color.WHITE : COLOR_NAVY_TEXT);
+        button.setBackground(ui.tileBackground(selected ? COLOR_TEAL : Color.WHITE,
+                selected ? Color.TRANSPARENT : COLOR_BORDER));
+        button.setMinHeight(ui.dp(48));
+        button.setEnabled(!selected);
+        button.setOnClickListener(v -> {
+            startActivity(new Intent(UsageTrackerActivity.this, destination));
+            finish();
+        });
+        return button;
     }
 
     private TextView mainPageBack() {
@@ -174,7 +281,7 @@ public class UsageTrackerActivity extends Activity {
 
     private void renderActions() {
         LinearLayout panel = ui.panel();
-        panel.addView(ui.sectionTitle("Controls"));
+        panel.addView(ui.sectionTitle("Data and privacy"));
         LinearLayout row = ui.horizontalRow();
         Button sync = ui.actionButton(syncInProgress ? "Syncing..." : "Sync", new View.OnClickListener() {
             @Override
@@ -358,20 +465,18 @@ public class UsageTrackerActivity extends Activity {
         row.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                selectedPackageName = packageName;
-                selectedAppName = displayName;
-                selectedCategory = installed ? category : category + " | Uninstalled";
-                render();
+                Intent detail = new Intent(UsageTrackerActivity.this, UsageAppDetailActivity.class);
+                detail.putExtra(EXTRA_PACKAGE_NAME, packageName);
+                detail.putExtra(EXTRA_APP_NAME, displayName);
+                detail.putExtra(EXTRA_CATEGORY, installed ? category : category + " | Uninstalled");
+                startActivity(detail);
             }
         });
 
         return row;
     }
 
-    private void renderAppDetail(UsageRange range) {
-        content.addView(backLink());
-        ui.addSpace(content, 6);
-
+    private void renderAppDetailHeader() {
         LinearLayout header = ui.panel();
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -392,26 +497,6 @@ public class UsageTrackerActivity extends Activity {
         row.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         header.addView(row);
         content.addView(header);
-
-        ui.addSpace(content, 14);
-        renderAppDetailSummary(range);
-        ui.addSpace(content, 14);
-        renderUsageLimitControls();
-        ui.addSpace(content, 14);
-        renderAppTrend(range);
-    }
-
-    private TextView backLink() {
-        TextView back = ui.text("< Back to apps", 15, Color.rgb(0, 110, 130), true);
-        back.setPadding(0, 0, 0, ui.dp(4));
-        back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                clearSelectedApp();
-                render();
-            }
-        });
-        return back;
     }
 
     private void renderAppDetailSummary(UsageRange range) {
