@@ -25,6 +25,7 @@ import android.widget.Toast;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 
@@ -32,16 +33,27 @@ public class UsageTrackerActivity extends Activity {
     static final String EXTRA_PACKAGE_NAME = "package_name";
     static final String EXTRA_APP_NAME = "app_name";
     static final String EXTRA_CATEGORY = "category";
+    static final String EXTRA_DATE_START = "date_start";
     private static final String PAGE_HOME = "home";
     private static final String PAGE_ANALYTICS = "analytics";
     private static final String PAGE_SETTINGS = "settings";
     private static final String PAGE_APP_DETAIL = "app_detail";
+    private static final String PAGE_DAY_DETAIL = "day_detail";
     private static final int COLOR_NAVY_TEXT = Color.rgb(13, 34, 54);
     private static final int COLOR_MUTED = Color.rgb(91, 107, 123);
     private static final int COLOR_TEAL = Color.rgb(0, 110, 130);
     private static final int COLOR_BORDER = Color.rgb(224, 228, 236);
     private static final int COLOR_GREEN = Color.rgb(15, 157, 88);
     private static final int COLOR_RED = Color.rgb(180, 35, 24);
+    private static final int[] CHART_COLORS = new int[]{
+            COLOR_TEAL,
+            Color.rgb(22, 63, 95),
+            COLOR_GREEN,
+            Color.rgb(245, 158, 11),
+            COLOR_RED,
+            Color.rgb(99, 102, 241),
+            Color.rgb(219, 39, 119)
+    };
     private static final String TAB_TODAY = "Today";
     private static final String TAB_WEEK = "Weekly";
     private static final String TAB_MONTH = "Monthly";
@@ -56,6 +68,7 @@ public class UsageTrackerActivity extends Activity {
     private boolean syncInProgress = false;
     private boolean hideSystemApps = true;
     private boolean destroyed = false;
+    private long selectedDayStart = 0;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
     private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM, h:mm a", Locale.getDefault());
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("EEE", Locale.getDefault());
@@ -70,6 +83,9 @@ public class UsageTrackerActivity extends Activity {
             selectedPackageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
             selectedAppName = getIntent().getStringExtra(EXTRA_APP_NAME);
             selectedCategory = getIntent().getStringExtra(EXTRA_CATEGORY);
+        }
+        if (PAGE_DAY_DETAIL.equals(pageType()) || PAGE_APP_DETAIL.equals(pageType())) {
+            selectedDayStart = getIntent().getLongExtra(EXTRA_DATE_START, 0);
         }
         UsageSyncScheduler.schedule(this);
         render();
@@ -119,13 +135,17 @@ public class UsageTrackerActivity extends Activity {
                 12, COLOR_MUTED, false));
         ui.addSpace(content, 14);
 
-        if (PAGE_APP_DETAIL.equals(pageType())) {
+        if (PAGE_APP_DETAIL.equals(pageType()) || PAGE_DAY_DETAIL.equals(pageType())) {
             if (!UsageTracker.hasUsageAccess(this)) {
                 renderPermissionPanel();
                 setContentView(scrollView);
                 return;
             }
-            renderAppDetailPage();
+            if (PAGE_DAY_DETAIL.equals(pageType())) {
+                renderDayDetailPage();
+            } else {
+                renderAppDetailPage();
+            }
             setContentView(scrollView);
             return;
         }
@@ -151,6 +171,7 @@ public class UsageTrackerActivity extends Activity {
         if (PAGE_ANALYTICS.equals(pageType())) return "Usage analytics";
         if (PAGE_SETTINGS.equals(pageType())) return "Tracker settings";
         if (PAGE_APP_DETAIL.equals(pageType())) return "App details";
+        if (PAGE_DAY_DETAIL.equals(pageType())) return "Daily usage details";
         return "Digital tracker";
     }
 
@@ -175,7 +196,9 @@ public class UsageTrackerActivity extends Activity {
         UsageRange week = UsageRange.thisWeek();
         renderSummary(week);
         ui.addSpace(content, 14);
-        renderCategoryBreakdown(week);
+        renderUsageBarChart(week, false);
+        ui.addSpace(content, 14);
+        renderCategoryPieChart(week);
         ui.addSpace(content, 14);
         renderBestWorstDays(week);
         ui.addSpace(content, 22);
@@ -186,9 +209,139 @@ public class UsageTrackerActivity extends Activity {
         UsageRange month = UsageRange.thisMonth();
         renderSummary(month);
         ui.addSpace(content, 14);
-        renderCategoryBreakdown(month);
+        renderUsageBarChart(month, true);
+        ui.addSpace(content, 14);
+        renderCategoryPieChart(month);
         ui.addSpace(content, 14);
         renderBestWorstDays(month);
+    }
+
+    private void renderUsageBarChart(UsageRange range, boolean monthly) {
+        int days = (int) range.dayCount();
+        long[] values = new long[days];
+        String[] labels = new String[days];
+
+        Cursor cursor = db.getDailyUsageTotals(range.start, range.end);
+        try {
+            while (cursor.moveToNext()) {
+                long dateStart = cursor.getLong(cursor.getColumnIndexOrThrow("date_start"));
+                int index = (int) ((dateStart - range.start) / UsageRange.DAY_MS);
+                if (index >= 0 && index < days) {
+                    values[index] = cursor.getLong(cursor.getColumnIndexOrThrow("total_ms"));
+                }
+            }
+        } finally {
+            cursor.close();
+        }
+
+        SimpleDateFormat weeklyLabel = new SimpleDateFormat("EEE", Locale.getDefault());
+        for (int index = 0; index < days; index++) {
+            if (monthly) {
+                int dayNumber = index + 1;
+                labels[index] = dayNumber == 1 || dayNumber == days || dayNumber % 5 == 0
+                        ? String.valueOf(dayNumber)
+                        : "";
+            } else {
+                labels[index] = weeklyLabel.format(new Date(range.start + index * UsageRange.DAY_MS));
+            }
+        }
+
+        LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle(monthly ? "Daily usage this month" : "Daily usage this week"));
+        panel.addView(ui.text("Tap a bar to open that day's usage details.", 12, COLOR_MUTED, false));
+        ui.addSpace(panel, 10);
+        UsageBarChartView chart = new UsageBarChartView(
+                this, values, labels, COLOR_TEAL, COLOR_NAVY_TEXT, index -> {
+                    long dayStart = range.start + index * UsageRange.DAY_MS;
+                    Intent detail = new Intent(
+                            UsageTrackerActivity.this, UsageDayDetailActivity.class);
+                    detail.putExtra(EXTRA_DATE_START, dayStart);
+                    startActivity(detail);
+                });
+        chart.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
+        panel.addView(chart, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(220)));
+        content.addView(panel);
+    }
+
+    private void renderCategoryPieChart(UsageRange range) {
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Long> values = new ArrayList<>();
+        ArrayList<Integer> colors = new ArrayList<>();
+        long total = 0;
+        Cursor cursor = db.getCategoryUsage(range.start, range.end);
+        try {
+            int index = 0;
+            while (cursor.moveToNext()) {
+                long value = cursor.getLong(cursor.getColumnIndexOrThrow("total_ms"));
+                if (value <= 0) {
+                    continue;
+                }
+                labels.add(cursor.getString(cursor.getColumnIndexOrThrow("category")));
+                values.add(value);
+                colors.add(CHART_COLORS[index % CHART_COLORS.length]);
+                total += value;
+                index++;
+            }
+        } finally {
+            cursor.close();
+        }
+
+        LinearLayout panel = ui.panel();
+        panel.addView(ui.sectionTitle("Categories"));
+        if (values.isEmpty()) {
+            panel.addView(ui.text("No category data yet.", 14, COLOR_MUTED, false));
+            content.addView(panel);
+            return;
+        }
+
+        long[] chartValues = new long[values.size()];
+        int[] chartColors = new int[colors.size()];
+        String[] chartLabels = labels.toArray(new String[0]);
+        for (int index = 0; index < values.size(); index++) {
+            chartValues[index] = values.get(index);
+            chartColors[index] = colors.get(index);
+        }
+
+        LinearLayout chartRow = ui.horizontalRow();
+        chartRow.setGravity(Gravity.CENTER_VERTICAL);
+        UsagePieChartView chart = new UsagePieChartView(
+                this, chartLabels, chartValues, chartColors, COLOR_NAVY_TEXT);
+        LinearLayout.LayoutParams chartParams = new LinearLayout.LayoutParams(ui.dp(120), ui.dp(120));
+        chartParams.setMargins(0, 0, ui.dp(12), 0);
+        chartRow.addView(chart, chartParams);
+
+        LinearLayout legend = new LinearLayout(this);
+        legend.setOrientation(LinearLayout.VERTICAL);
+        for (int index = 0; index < labels.size(); index++) {
+            legend.addView(categoryLegendRow(
+                    labels.get(index), values.get(index), colors.get(index), total));
+        }
+        chartRow.addView(legend, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        panel.addView(chartRow);
+        panel.addView(ui.text("Tap a slice to see exact screen time.", 12, COLOR_MUTED, false));
+        content.addView(panel);
+    }
+
+    private LinearLayout categoryLegendRow(String label, long value, int color, long total) {
+        LinearLayout row = ui.horizontalRow();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        View swatch = new View(this);
+        swatch.setBackground(ui.tileBackground(color, Color.TRANSPARENT));
+        LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(ui.dp(10), ui.dp(10));
+        swatchParams.setMargins(0, 0, ui.dp(8), 0);
+        row.addView(swatch, swatchParams);
+
+        TextView name = ui.text(label, 11, COLOR_MUTED, false);
+        TextView percentage = ui.text(percentText(value, total), 11, COLOR_NAVY_TEXT, true);
+        percentage.setGravity(Gravity.RIGHT);
+        row.addView(name, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        row.addView(percentage, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return row;
     }
 
     private void renderAppDetailPage() {
@@ -200,9 +353,16 @@ public class UsageTrackerActivity extends Activity {
         ui.addSpace(content, 14);
 
         selectedTab = TAB_TODAY;
-        content.addView(ui.text("Today", 18, COLOR_NAVY_TEXT, true));
+        UsageRange detailDay = selectedDayStart > 0
+                ? new UsageRange(selectedDayStart, selectedDayStart + UsageRange.DAY_MS)
+                : UsageRange.today();
+        String detailDayLabel = selectedDayStart > 0
+                ? new SimpleDateFormat("EEEE, dd MMMM", Locale.getDefault())
+                        .format(new Date(selectedDayStart))
+                : "Today";
+        content.addView(ui.text(detailDayLabel, 18, COLOR_NAVY_TEXT, true));
         ui.addSpace(content, 8);
-        renderAppDetailSummary(UsageRange.today());
+        renderAppDetailSummary(detailDay);
         ui.addSpace(content, 14);
         renderUsageLimitControls();
         ui.addSpace(content, 22);
@@ -221,6 +381,34 @@ public class UsageTrackerActivity extends Activity {
         renderAppDetailSummary(UsageRange.thisMonth());
         ui.addSpace(content, 14);
         renderAppTrend(UsageRange.thisMonth());
+    }
+
+    private void renderDayDetailPage() {
+        if (selectedDayStart <= 0) {
+            content.addView(ui.text("Daily usage details are unavailable.", 14, COLOR_MUTED, false));
+            return;
+        }
+        UsageRange day = new UsageRange(selectedDayStart, selectedDayStart + UsageRange.DAY_MS);
+        selectedTab = TAB_TODAY;
+
+        LinearLayout datePanel = ui.panel();
+        datePanel.addView(ui.text(
+                new SimpleDateFormat("EEEE", Locale.getDefault()).format(new Date(selectedDayStart)),
+                18, COLOR_NAVY_TEXT, true));
+        datePanel.addView(ui.text(
+                new SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(new Date(selectedDayStart)),
+                13, COLOR_MUTED, false));
+        content.addView(datePanel);
+        ui.addSpace(content, 14);
+        renderSummary(day);
+        ui.addSpace(content, 14);
+        renderTopApps(day);
+        ui.addSpace(content, 14);
+        renderFrequentOpenWarnings(day);
+        ui.addSpace(content, 14);
+        renderHourlyBreakdown(day.start);
+        ui.addSpace(content, 14);
+        renderCategoryBreakdown(day);
     }
 
     private void renderPageNavigation() {
@@ -469,6 +657,9 @@ public class UsageTrackerActivity extends Activity {
                 detail.putExtra(EXTRA_PACKAGE_NAME, packageName);
                 detail.putExtra(EXTRA_APP_NAME, displayName);
                 detail.putExtra(EXTRA_CATEGORY, installed ? category : category + " | Uninstalled");
+                if (PAGE_DAY_DETAIL.equals(pageType()) && selectedDayStart > 0) {
+                    detail.putExtra(EXTRA_DATE_START, selectedDayStart);
+                }
                 startActivity(detail);
             }
         });

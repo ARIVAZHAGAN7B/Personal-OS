@@ -44,6 +44,9 @@
             android:name=".UsageAppDetailActivity"
             android:exported="false" />
         <activity
+            android:name=".UsageDayDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".DiaryActivity"
             android:exported="false" />
         <receiver

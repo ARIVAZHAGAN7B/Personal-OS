@@ -231,6 +231,15 @@ public class UsageDbHelper extends SQLiteOpenHelper {
                 new String[]{packageName, String.valueOf(startDateInclusive), String.valueOf(endDateExclusive)});
     }
 
+    public Cursor getDailyUsageTotals(long startDateInclusive, long endDateExclusive) {
+        return getReadableDatabase().rawQuery(
+                "SELECT date_start, SUM(total_foreground_ms) AS total_ms " +
+                        "FROM daily_app_usage " +
+                        "WHERE date_start >= ? AND date_start < ? " +
+                        "GROUP BY date_start ORDER BY date_start",
+                new String[]{String.valueOf(startDateInclusive), String.valueOf(endDateExclusive)});
+    }
+
     public Map<String, Long> getSummary(long startDateInclusive, long endDateExclusive) {
         HashMap<String, Long> summary = new HashMap<>();
         summary.put("total_ms", 0L);
