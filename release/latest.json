@@ -1,8 +1,8 @@
 {
-    "versionCode":  5,
-    "versionName":  "1.4.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.4.0/PersonalOS-1.4.0.apk",
+    "versionCode":  6,
+    "versionName":  "1.5.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.5.0/PersonalOS-1.5.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Refreshed Diary with previous and next day navigation, compact calendar selection, a larger editor, live character count, cleaner actions, and dated history cards.",
-    "sha256":  "B57465B54EEF80C8F8CE237C5A1DF72C7770A35C9E8275131851BCCEA3331414"
+    "releaseNotes":  "Introduces a multipage Digital Tracker with a focused daily usage home, dedicated app detail screens, combined weekly and monthly analytics, and a separate settings page.",
+    "sha256":  "1D53BEC3B8AFFDFAD6AF22A0977D35E8D45DE149145A8B8629E1EC4B5A7387E5"
 }
