@@ -1,8 +1,8 @@
 {
-    "versionCode":  9,
-    "versionName":  "1.8.0",
-    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.8.0/PersonalOS-1.8.0.apk",
+    "versionCode":  10,
+    "versionName":  "1.9.0",
+    "apkUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/download/v1.9.0/PersonalOS-1.9.0.apk",
     "releasePageUrl":  "https://github.com/ARIVAZHAGAN7B/Personal-OS/releases/latest",
-    "releaseNotes":  "Redesigned all three Diary pages with polished illustrated headers, an improved writing editor, richer entry browsing and filters, an enhanced heatmap calendar, and a consistent three-item navigation bar.",
-    "sha256":  "84254AE1559B68E859633AAAF5E3D52516574DEB71CB8D06875709EED719C8AE"
+    "releaseNotes":  "Comprehensive UI/UX audit improvements across expense tracker, digital usage tracker, diary, and widget.",
+    "sha256":  "B51D6A2D40C6D02352F337A9C3FF50AF150B3A0D94737A3C953EEDE126BAB7DC"
 }
