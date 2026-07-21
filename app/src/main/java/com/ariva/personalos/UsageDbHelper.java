@@ -68,6 +68,21 @@ public class UsageDbHelper extends SQLiteOpenHelper {
                 "daily_limit_ms INTEGER NOT NULL)");
     }
 
+    public void beginWriteTransaction() {
+        getWritableDatabase().beginTransaction();
+    }
+
+    public void setWriteTransactionSuccessful() {
+        getWritableDatabase().setTransactionSuccessful();
+    }
+
+    public void endWriteTransaction() {
+        SQLiteDatabase db = getWritableDatabase();
+        if (db.inTransaction()) {
+            db.endTransaction();
+        }
+    }
+
     public void upsertApp(String packageName, String appName, String category, long seenAt, boolean installed) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues insertValues = new ContentValues();

@@ -12,12 +12,29 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class UsageTracker {
+    public static final long AUTO_SYNC_MIN_INTERVAL_MS = 5L * 60L * 1000L;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long HOUR_MS = 60L * 60L * 1000L;
+    private static final AtomicBoolean SYNC_RUNNING = new AtomicBoolean(false);
 
     private UsageTracker() {
+    }
+
+    public static boolean recentlySynced(Context context) {
+        return recentlySynced(context, AUTO_SYNC_MIN_INTERVAL_MS);
+    }
+
+    public static boolean recentlySynced(Context context, long minIntervalMs) {
+        UsageDbHelper db = new UsageDbHelper(context);
+        try {
+            long lastSync = db.getLastSyncTime();
+            return lastSync > 0 && (System.currentTimeMillis() - lastSync) < minIntervalMs;
+        } finally {
+            db.close();
+        }
     }
 
     public static boolean hasUsageAccess(Context context) {
@@ -32,66 +49,85 @@ public class UsageTracker {
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    public static void syncRecentDays(Context context, int days) {
+    public static boolean syncRecentDays(Context context, int days) {
         long today = UsageRange.startOfDay(System.currentTimeMillis());
         long start = today - Math.max(0, days - 1) * DAY_MS;
-        syncRange(context, start, System.currentTimeMillis());
+        return syncRange(context, start, System.currentTimeMillis());
     }
 
-    public static void syncRange(Context context, long startInclusive, long endExclusive) {
+    public static boolean syncRange(Context context, long startInclusive, long endExclusive) {
         if (!hasUsageAccess(context) || endExclusive <= startInclusive) {
-            return;
+            return false;
         }
 
         UsageStatsManager manager = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
         if (manager == null) {
-            return;
+            return false;
+        }
+        if (!SYNC_RUNNING.compareAndSet(false, true)) {
+            return false;
         }
 
         long clearStart = UsageRange.startOfDay(startInclusive);
         long clearEnd = UsageRange.startOfDay(endExclusive) + DAY_MS;
         UsageDbHelper db = new UsageDbHelper(context);
-        db.clearForDates(clearStart, clearEnd);
+        try {
+            db.beginWriteTransaction();
+            db.clearForDates(clearStart, clearEnd);
 
-        Map<String, Long> openStarts = new HashMap<>();
-        UsageEvents events = manager.queryEvents(startInclusive, endExclusive);
-        UsageEvents.Event event = new UsageEvents.Event();
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event);
-            String packageName = event.getPackageName();
-            if (packageName == null || packageName.equals(context.getPackageName())) {
-                continue;
-            }
-
-            int type = event.getEventType();
-            if (isForegroundEvent(type)) {
-                if (!openStarts.containsKey(packageName)) {
-                    openStarts.put(packageName, event.getTimeStamp());
+            Map<String, Long> openStarts = new HashMap<>();
+            Map<String, AppMetadata> metadataCache = new HashMap<>();
+            UsageEvents events = manager.queryEvents(startInclusive, endExclusive);
+            UsageEvents.Event event = new UsageEvents.Event();
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event);
+                String packageName = event.getPackageName();
+                if (packageName == null || packageName.equals(context.getPackageName())) {
+                    continue;
                 }
-            } else if (isBackgroundEvent(type)) {
-                Long openStart = openStarts.remove(packageName);
-                if (openStart != null && event.getTimeStamp() > openStart) {
-                    recordSession(context, db, packageName, openStart, event.getTimeStamp());
+
+                int type = event.getEventType();
+                if (isForegroundEvent(type)) {
+                    if (!openStarts.containsKey(packageName)) {
+                        openStarts.put(packageName, event.getTimeStamp());
+                    }
+                } else if (isBackgroundEvent(type)) {
+                    Long openStart = openStarts.remove(packageName);
+                    if (openStart != null && event.getTimeStamp() > openStart) {
+                        recordSession(context, db, metadataCache, packageName, openStart, event.getTimeStamp());
+                    }
                 }
             }
-        }
 
-        long now = System.currentTimeMillis();
-        for (Map.Entry<String, Long> entry : openStarts.entrySet()) {
-            long end = Math.min(now, endExclusive);
-            if (end > entry.getValue()) {
-                recordSession(context, db, entry.getKey(), entry.getValue(), end);
+            long now = System.currentTimeMillis();
+            for (Map.Entry<String, Long> entry : openStarts.entrySet()) {
+                long end = Math.min(now, endExclusive);
+                if (end > entry.getValue()) {
+                    recordSession(context, db, metadataCache, entry.getKey(), entry.getValue(), end);
+                }
             }
-        }
 
-        rebuildAggregates(db, clearStart, clearEnd);
-        db.close();
+            rebuildAggregates(db, clearStart, clearEnd);
+            db.setWriteTransactionSuccessful();
+            return true;
+        } finally {
+            db.endWriteTransaction();
+            db.close();
+            SYNC_RUNNING.set(false);
+        }
     }
 
-    private static void recordSession(Context context, UsageDbHelper db, String packageName, long start, long end) {
-        String appName = loadAppName(context, packageName);
-        String category = inferCategory(context, packageName);
-        db.upsertApp(packageName, appName, category, end, isInstalled(context, packageName));
+    private static void recordSession(Context context, UsageDbHelper db, Map<String, AppMetadata> metadataCache,
+                                      String packageName, long start, long end) {
+        AppMetadata metadata = metadataCache.get(packageName);
+        if (metadata == null) {
+            metadata = new AppMetadata(
+                    loadAppName(context, packageName),
+                    inferCategory(context, packageName),
+                    isInstalled(context, packageName));
+            metadataCache.put(packageName, metadata);
+        }
+        db.upsertApp(packageName, metadata.appName, metadata.category, end, metadata.installed);
 
         long cursor = start;
         while (cursor < end) {
@@ -245,6 +281,18 @@ public class UsageTracker {
         DayBucket(String packageName, long dateStart) {
             this.packageName = packageName;
             this.dateStart = dateStart;
+        }
+    }
+
+    private static class AppMetadata {
+        final String appName;
+        final String category;
+        final boolean installed;
+
+        AppMetadata(String appName, String category, boolean installed) {
+            this.appName = appName;
+            this.category = category;
+            this.installed = installed;
         }
     }
 }

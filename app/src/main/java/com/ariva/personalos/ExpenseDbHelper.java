@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class ExpenseDbHelper extends SQLiteOpenHelper {
     public static final String DB_NAME = "personal_expenses.db";
-    public static final int DB_VERSION = 5;
+    public static final int DB_VERSION = 6;
 
     public static final String TYPE_EXPENSE = "expense";
     public static final String TYPE_INCOME = "income";
@@ -23,6 +23,7 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
     public static final String TYPE_BORROWED = "borrowed";
     public static final String TYPE_LENDED = "lended";
     private static final String BORROW_LEND_CATEGORY = "Borrow / Lend";
+    private static final String NON_RETURNED_CATEGORY = "Non Returned Spending";
     private static final String BORROW_LEND_EVENT_OPENED = "opened";
     private static final String BORROW_LEND_EVENT_COMPLETED = "completed";
 
@@ -64,6 +65,7 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE UNIQUE INDEX idx_transactions_borrow_lend_event " +
                 "ON transactions(borrow_lend_id, borrow_lend_event)");
         createBorrowLendTable(db);
+        createNonReturnedSpendingTable(db);
         ensureCashAccount(db);
 
         long now = System.currentTimeMillis();
@@ -73,6 +75,7 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
         seedCategory(db, "Salary", TYPE_INCOME, now);
         seedCategory(db, "Freelance", TYPE_INCOME, now);
         seedCategory(db, BORROW_LEND_CATEGORY, TYPE_BOTH, now);
+        seedCategory(db, NON_RETURNED_CATEGORY, TYPE_EXPENSE, now);
     }
 
     @Override
@@ -90,6 +93,10 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
                     "ON transactions(borrow_lend_id, borrow_lend_event)");
             migrateBorrowLendTransactions(db);
         }
+        if (oldVersion < 6) {
+            createNonReturnedSpendingTable(db);
+            ensureNonReturnedCategory(db);
+        }
     }
 
     private void createBorrowLendTable(SQLiteDatabase db) {
@@ -105,6 +112,22 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
                 "FOREIGN KEY(bank_account_id) REFERENCES bank_accounts(id))");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_borrow_lend_account ON borrow_lend(bank_account_id)");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_borrow_lend_status ON borrow_lend(is_completed)");
+    }
+
+    private void createNonReturnedSpendingTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS non_returned_spending (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "name TEXT NOT NULL," +
+                "amount INTEGER NOT NULL," +
+                "bank_account_id INTEGER," +
+                "transaction_id INTEGER," +
+                "created_at INTEGER NOT NULL," +
+                "FOREIGN KEY(bank_account_id) REFERENCES bank_accounts(id)," +
+                "FOREIGN KEY(transaction_id) REFERENCES transactions(id))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_non_returned_spending_created " +
+                "ON non_returned_spending(created_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_non_returned_spending_account " +
+                "ON non_returned_spending(bank_account_id)");
     }
 
     private void ensureCashAccount(SQLiteDatabase db) {
@@ -147,6 +170,25 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put("name", BORROW_LEND_CATEGORY);
         values.put("type", TYPE_BOTH);
+        values.put("created_at", System.currentTimeMillis());
+        return db.insertOrThrow("categories", null, values);
+    }
+
+    private long ensureNonReturnedCategory(SQLiteDatabase db) {
+        Cursor cursor = db.rawQuery(
+                "SELECT id FROM categories WHERE name = ? AND (type = ? OR type = ?) LIMIT 1",
+                new String[]{NON_RETURNED_CATEGORY, TYPE_EXPENSE, TYPE_BOTH});
+        try {
+            if (cursor.moveToFirst()) {
+                return cursor.getLong(0);
+            }
+        } finally {
+            cursor.close();
+        }
+
+        ContentValues values = new ContentValues();
+        values.put("name", NON_RETURNED_CATEGORY);
+        values.put("type", TYPE_EXPENSE);
         values.put("created_at", System.currentTimeMillis());
         return db.insertOrThrow("categories", null, values);
     }
@@ -317,6 +359,67 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
             values.put("completed_at", now);
             db.update("borrow_lend", values, "id = ? AND is_completed = 0",
                     new String[]{String.valueOf(id)});
+            db.setTransactionSuccessful();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            db.endTransaction();
+        }
+    }
+
+    public long addNonReturnedSpending(String name, long amount, long bankAccountId) {
+        SQLiteDatabase db = getWritableDatabase();
+        long now = System.currentTimeMillis();
+        db.beginTransaction();
+        try {
+            Long transactionId = null;
+            if (bankAccountId > 0) {
+                ContentValues transaction = new ContentValues();
+                transaction.put("name", "Non returned spending - " + name);
+                transaction.put("amount", amount);
+                transaction.put("type", TYPE_EXPENSE);
+                transaction.put("category_id", ensureNonReturnedCategory(db));
+                transaction.put("bank_account_id", bankAccountId);
+                transaction.put("transaction_date", now);
+                transaction.put("created_at", now);
+                transactionId = db.insertOrThrow("transactions", null, transaction);
+            }
+
+            ContentValues values = new ContentValues();
+            values.put("name", name);
+            values.put("amount", amount);
+            if (bankAccountId > 0) {
+                values.put("bank_account_id", bankAccountId);
+            }
+            if (transactionId != null) {
+                values.put("transaction_id", transactionId);
+            }
+            values.put("created_at", now);
+            long id = db.insertOrThrow("non_returned_spending", null, values);
+            db.setTransactionSuccessful();
+            return id;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public void deleteNonReturnedSpending(long id) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        Cursor cursor = null;
+        try {
+            cursor = db.rawQuery(
+                    "SELECT transaction_id FROM non_returned_spending WHERE id = ?",
+                    new String[]{String.valueOf(id)});
+            if (cursor.moveToFirst()) {
+                int transactionColumn = cursor.getColumnIndexOrThrow("transaction_id");
+                if (!cursor.isNull(transactionColumn)) {
+                    db.delete("transactions", "id = ?",
+                            new String[]{String.valueOf(cursor.getLong(transactionColumn))});
+                }
+            }
+            db.delete("non_returned_spending", "id = ?", new String[]{String.valueOf(id)});
             db.setTransactionSuccessful();
         } finally {
             if (cursor != null) {
@@ -533,6 +636,15 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
                         "ORDER BY bl.is_completed ASC, bl.created_at DESC", null);
     }
 
+    public Cursor getNonReturnedSpendingRecords() {
+        return getReadableDatabase().rawQuery(
+                "SELECT nrs.id, nrs.name, nrs.amount, nrs.created_at, nrs.transaction_id, " +
+                        "COALESCE(a.name, '') AS account " +
+                        "FROM non_returned_spending nrs " +
+                        "LEFT JOIN bank_accounts a ON a.id = nrs.bank_account_id " +
+                        "ORDER BY nrs.created_at DESC", null);
+    }
+
     public long getTotalBalance() {
         long total = 0;
         Cursor cursor = getAccountsWithBalances();
@@ -630,5 +742,27 @@ public class ExpenseDbHelper extends SQLiteOpenHelper {
         format.setRoundingMode(RoundingMode.HALF_UP);
         return format.format(cents / 100.0);
     }
+
+    public long[] getBorrowLendTotals() {
+        long borrowed = 0;
+        long lent = 0;
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT type, SUM(amount) FROM borrow_lend WHERE is_completed = 0 GROUP BY type", null);
+        try {
+            while (cursor.moveToNext()) {
+                String type = cursor.getString(0);
+                long sum = cursor.getLong(1);
+                if (TYPE_BORROWED.equals(type)) {
+                    borrowed = sum;
+                } else if (TYPE_LENDED.equals(type)) {
+                    lent = sum;
+                }
+            }
+        } finally {
+            cursor.close();
+        }
+        return new long[]{borrowed, lent};
+    }
+
 
 }

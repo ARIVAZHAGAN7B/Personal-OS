@@ -31,16 +31,16 @@ public class AppUi {
     }
 
     public TextView sectionTitle(String title) {
-        TextView view = text(title, 15, Color.rgb(13, 34, 54), true);
-        view.setPadding(0, 0, 0, dp(10));
+        TextView view = text(title, 16, Color.rgb(13, 34, 54), true);
+        view.setPadding(0, 0, 0, dp(12));
         return view;
     }
 
     public TextView metricCard(String label, String value) {
-        TextView view = text(label + "\n" + value, 18, Color.WHITE, true);
-        view.setBackgroundColor(Color.rgb(22, 63, 95));
-        view.setPadding(dp(14), dp(14), dp(14), dp(14));
-        view.setMinHeight(dp(92));
+        TextView view = text(label + "\n" + value, 20, Color.WHITE, true);
+        view.setBackground(tileBackground(Color.rgb(22, 63, 95), Color.TRANSPARENT));
+        view.setPadding(dp(16), dp(16), dp(16), dp(16));
+        view.setMinHeight(dp(96));
         return view;
     }
 
@@ -60,7 +60,7 @@ public class AppUi {
                 context,
                 Math.min(100, filledWeight),
                 color,
-                dp(8),
+                dp(10),
                 tileBackground(Color.rgb(234, 236, 240), Color.TRANSPARENT));
     }
 
@@ -71,8 +71,8 @@ public class AppUi {
         button.setTextColor(Color.WHITE);
         button.setAllCaps(false);
         button.setBackground(tileBackground(Color.rgb(0, 110, 130), Color.TRANSPARENT));
-        button.setPadding(dp(8), dp(10), dp(8), dp(10));
-        button.setMinHeight(dp(44));
+        button.setPadding(dp(12), dp(12), dp(12), dp(12));
+        button.setMinHeight(dp(48));
         button.setOnClickListener(listener);
         return button;
     }
@@ -81,9 +81,9 @@ public class AppUi {
         LinearLayout panel = new LinearLayout(context);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setBackground(tileBackground(Color.WHITE, Color.rgb(224, 228, 236)));
-        panel.setPadding(dp(12), dp(11), dp(12), dp(11));
+        panel.setPadding(dp(16), dp(14), dp(16), dp(14));
         panel.setMinimumHeight(dp(48));
-        panel.setElevation(dp(1));
+        panel.setElevation(dp(2));
         return panel;
     }
 
@@ -97,7 +97,7 @@ public class AppUi {
 
     public LinearLayout.LayoutParams weightParams() {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        params.setMargins(dp(4), 0, dp(4), 0);
+        params.setMargins(dp(6), 0, dp(6), 0);
         return params;
     }
 
@@ -113,7 +113,7 @@ public class AppUi {
     public GradientDrawable tileBackground(int fill, int stroke) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(fill);
-        drawable.setCornerRadius(dp(8));
+        drawable.setCornerRadius(dp(12));
         if (stroke != Color.TRANSPARENT) {
             drawable.setStroke(dp(1), stroke);
         }

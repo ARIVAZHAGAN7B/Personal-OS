@@ -13,7 +13,9 @@ public class UsageSyncReceiver extends BroadcastReceiver {
             @Override
             public void run() {
                 try {
-                    UsageTracker.syncRecentDays(appContext, 3);
+                    if (!UsageTracker.recentlySynced(appContext)) {
+                        UsageTracker.syncRecentDays(appContext, 3);
+                    }
                 } catch (Throwable ignored) {
                 } finally {
                     result.finish();

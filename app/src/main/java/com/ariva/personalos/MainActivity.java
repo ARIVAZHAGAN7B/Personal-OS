@@ -1,7 +1,6 @@
 package com.ariva.personalos;
 
 import android.Manifest;
-import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
@@ -11,11 +10,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -73,6 +69,7 @@ public class MainActivity extends Activity {
     private static final int MORE_ACCOUNTS = 1;
     private static final int MORE_CATEGORIES = 2;
     private static final int MORE_BORROW_LEND = 3;
+    private static final int MORE_SETTINGS = 4;
     private static final String INSIGHTS_TODAY = "Today";
     private static final String INSIGHTS_WEEKLY = "Weekly";
     private static final String INSIGHTS_MONTHLY = "Monthly";
@@ -209,6 +206,8 @@ public class MainActivity extends Activity {
         content = todayContent;
         addSpace(14);
         todayContent.addView(todaySnapshotPanel());
+        addSpace(14);
+        todayContent.addView(homePagerHint("Swipe left for Tools"));
         homePager.addView(homeScrollPage(todayContent));
 
         LinearLayout toolsContent = homePageContent();
@@ -246,6 +245,8 @@ public class MainActivity extends Activity {
             }
         }), toolGridParams());
         toolsContent.addView(secondRow);
+        addSpace(14);
+        toolsContent.addView(homePagerHint("Swipe right for Today"));
         homePager.addView(homeScrollPage(toolsContent));
 
         setContentView(homePager);
@@ -256,7 +257,7 @@ public class MainActivity extends Activity {
     private LinearLayout homePageContent() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(14), dp(18), dp(14), dp(18));
+        page.setPadding(dp(16), dp(20), dp(16), dp(20));
         return page;
     }
 
@@ -310,13 +311,23 @@ public class MainActivity extends Activity {
                 ExpenseDbHelper.formatMoney(spent),
                 "Today",
                 COLOR_RED,
-                null), weightParams());
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        selectPage(PAGE_TRANSACTIONS);
+                    }
+                }), weightParams());
         firstRow.addView(snapshotMetric(
                 "Income",
                 ExpenseDbHelper.formatMoney(income),
                 "Net " + signedMoney(net),
                 COLOR_GREEN,
-                null), weightParams());
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        selectPage(PAGE_TRANSACTIONS);
+                    }
+                }), weightParams());
         card.addView(firstRow);
 
         addSpaceTo(card, 10);
@@ -327,13 +338,23 @@ public class MainActivity extends Activity {
                 screenTime,
                 screenTimeDetail,
                 COLOR_TEAL,
-                null), weightParams());
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        startActivity(new Intent(MainActivity.this, UsageTrackerActivity.class));
+                    }
+                }), weightParams());
         secondRow.addView(snapshotMetric(
                 "Diary",
                 diaryWritten ? "Written" : "Not written",
                 diaryWritten ? "Today's entry saved" : "Add today's entry",
                 diaryWritten ? COLOR_GREEN : COLOR_MUTED,
-                null), weightParams());
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        startActivity(new Intent(MainActivity.this, DiaryActivity.class));
+                    }
+                }), weightParams());
         card.addView(secondRow);
         return card;
     }
@@ -375,7 +396,7 @@ public class MainActivity extends Activity {
     }
 
     private void refreshUsageSnapshot() {
-        if (!UsageTracker.hasUsageAccess(this) || usageSnapshotSyncInProgress) {
+        if (!UsageTracker.hasUsageAccess(this) || usageSnapshotSyncInProgress || UsageTracker.recentlySynced(this)) {
             return;
         }
         usageSnapshotSyncInProgress = true;
@@ -404,7 +425,7 @@ public class MainActivity extends Activity {
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(18), dp(14), dp(18));
+        content.setPadding(dp(16), dp(20), dp(16), dp(20));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -653,7 +674,7 @@ public class MainActivity extends Activity {
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(14), dp(14), dp(18));
+        content.setPadding(dp(16), dp(16), dp(16), dp(20));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -693,13 +714,13 @@ public class MainActivity extends Activity {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(6), dp(6), dp(6), dp(7));
+        nav.setPadding(dp(8), dp(8), dp(8), dp(8));
         nav.setBackground(tileBackground(Color.WHITE, COLOR_BORDER));
         nav.addView(createBottomNavItem(R.drawable.ic_nav_home, "Dashboard", PAGE_DASHBOARD), weightParams());
-        nav.addView(createBottomNavItem(R.drawable.ic_nav_transactions, "Accounts", PAGE_TRANSACTIONS), weightParams());
+        nav.addView(createBottomNavItem(R.drawable.ic_nav_transactions, "Transactions", PAGE_TRANSACTIONS), weightParams());
         nav.addView(createCenterAddButton(), weightParams());
         nav.addView(createBottomNavItem(R.drawable.ic_nav_analytics, "Analytics", PAGE_INSIGHTS), weightParams());
-        nav.addView(createBottomNavItem(R.drawable.ic_nav_settings, "Settings", PAGE_MORE), weightParams());
+        nav.addView(createBottomNavItem(R.drawable.ic_nav_settings, "More", PAGE_MORE), weightParams());
         return nav;
     }
 
@@ -708,17 +729,17 @@ public class MainActivity extends Activity {
         LinearLayout item = new LinearLayout(this);
         item.setOrientation(LinearLayout.VERTICAL);
         item.setGravity(Gravity.CENTER);
-        item.setMinimumHeight(dp(46));
-        item.setPadding(dp(2), dp(1), dp(2), dp(1));
+        item.setMinimumHeight(dp(48));
+        item.setPadding(dp(4), dp(2), dp(4), dp(2));
         item.setBackground(tileBackground(Color.WHITE, Color.TRANSPARENT));
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconRes);
         icon.setColorFilter(selected ? COLOR_GREEN : COLOR_MUTED);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(18), dp(18));
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(20), dp(20));
         item.addView(icon, iconParams);
 
-        TextView text = text(label, 9, selected ? COLOR_GREEN : COLOR_MUTED, selected);
+        TextView text = text(label, 10, selected ? COLOR_GREEN : COLOR_MUTED, selected);
         styleBottomNavLabel(text);
         text.setGravity(Gravity.CENTER);
         text.setSingleLine(true);
@@ -747,9 +768,9 @@ public class MainActivity extends Activity {
         background.setColor(COLOR_GREEN);
         icon.setBackground(background);
         icon.setPadding(dp(6), dp(6), dp(6), dp(6));
-        button.addView(icon, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        button.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
 
-        TextView label = text("Add", 9, COLOR_MUTED, false);
+        TextView label = text("Add", 10, COLOR_MUTED, false);
         styleBottomNavLabel(label);
         label.setGravity(Gravity.CENTER);
         button.addView(label);
@@ -771,7 +792,9 @@ public class MainActivity extends Activity {
         button.setColorFilter(COLOR_NAVY);
         button.setScaleType(ImageView.ScaleType.CENTER);
         button.setBackground(tileBackground(COLOR_METRIC_TINT, COLOR_BORDER));
-        button.setPadding(dp(10), dp(10), dp(10), dp(10));
+        button.setPadding(dp(12), dp(12), dp(12), dp(12));
+        button.setMinimumWidth(dp(48));
+        button.setMinimumHeight(dp(48));
         button.setContentDescription("Filter transactions");
         button.setOnClickListener(listener);
         return button;
@@ -781,6 +804,8 @@ public class MainActivity extends Activity {
         content.addView(appTitle("Expense tracker"));
         content.addView(pageSubtitle(new SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(new Date())));
         addSpace(16);
+        renderQuickTransactionActions();
+        addSpace(12);
         renderSummary();
         addSpace(12);
         renderWeeklyDashboardGraph();
@@ -867,7 +892,14 @@ public class MainActivity extends Activity {
         Cursor transactions = db.getTransactionsBetween(start, end);
         try {
             if (!transactions.moveToFirst()) {
-                transactionsPanel.addView(text("No transactions today yet.", 14, Color.rgb(102, 112, 133), false));
+                transactionsPanel.addView(emptyStateText("No transactions today yet."));
+                addSpaceTo(transactionsPanel, 8);
+                transactionsPanel.addView(actionButton("Add Transaction", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        showAddTransactionDialog();
+                    }
+                }));
             } else {
                 do {
                     final long id = transactions.getLong(transactions.getColumnIndexOrThrow("id"));
@@ -1015,6 +1047,10 @@ public class MainActivity extends Activity {
             renderBorrowLendPage();
             return;
         }
+        if (currentMorePage == MORE_SETTINGS) {
+            renderExpenseSettingsPage();
+            return;
+        }
 
         content.addView(pageTitle("More"));
         content.addView(pageSubtitle("Accounts, categories, and setup."));
@@ -1050,9 +1086,33 @@ public class MainActivity extends Activity {
             }
         }));
         addSpace(10);
-        content.addView(moreMenuCard("Settings", "Available in a future update", null));
+        content.addView(moreMenuCard("Reimbursements", "Unreturned spending", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                currentMorePage = MORE_SETTINGS;
+                renderAppShell();
+            }
+        }));
         addSpace(10);
-        content.addView(moreMenuCard("Backup / Restore", "Available in a future update", null));
+        content.addView(moreMenuCard("Backup / Restore", "Coming soon", null));
+    }
+
+    private void renderExpenseSettingsPage() {
+        content.addView(subPageBack());
+        content.addView(pageTitle("Reimbursements"));
+        content.addView(pageSubtitle("Manage unreturned spending records."));
+        addSpace(16);
+        Button addSpending = actionButton("Add Unreturned Spending", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showNonReturnedSpendingDialog();
+            }
+        });
+        content.addView(addSpending, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        addSpace(14);
+        renderNonReturnedSpendingRecords();
     }
 
     private void renderBorrowLendPage() {
@@ -1067,13 +1127,26 @@ public class MainActivity extends Activity {
                 showBorrowLendDialog(ExpenseDbHelper.TYPE_BORROWED);
             }
         }), weightParams());
-        actions.addView(actionButton("Add Lended", new View.OnClickListener() {
+        actions.addView(actionButton("Add Lent", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 showBorrowLendDialog(ExpenseDbHelper.TYPE_LENDED);
             }
         }), weightParams());
         content.addView(actions);
+
+        // Totals summary
+        addSpace(14);
+        long[] totals = db.getBorrowLendTotals();
+        long totalBorrowed = totals != null && totals.length > 0 ? totals[0] : 0;
+        long totalLent = totals != null && totals.length > 1 ? totals[1] : 0;
+        LinearLayout summary = panel();
+        summary.addView(sectionTitle("Summary"));
+        LinearLayout sumRow = horizontalRow();
+        sumRow.addView(summaryMetricCard("You owe", ExpenseDbHelper.formatMoney(totalBorrowed), COLOR_RED), weightParams());
+        sumRow.addView(summaryMetricCard("Owed to you", ExpenseDbHelper.formatMoney(totalLent), COLOR_GREEN), weightParams());
+        summary.addView(sumRow);
+        content.addView(summary);
 
         addSpace(18);
         renderBorrowLendRecords();
@@ -1207,13 +1280,13 @@ public class MainActivity extends Activity {
     }
 
     private TextView filterSummary() {
-        String summary = titleCase(transactionFilterType) + " · "
-                + selectedOptionName(loadAccountsWithAll(), transactionFilterAccountId) + " · "
-                + selectedOptionName(loadCategoriesWithAll(), transactionFilterCategoryId) + " · "
-                + filterLabel(transactionFilterTimeline) + " · "
+        String summary = titleCase(transactionFilterType) + " | "
+                + selectedOptionName(loadAccountsWithAll(), transactionFilterAccountId) + " | "
+                + selectedOptionName(loadCategoriesWithAll(), transactionFilterCategoryId) + " | "
+                + filterLabel(transactionFilterTimeline) + " | "
                 + filterLabel(transactionSortOrder);
         if (!transactionSearchText.isEmpty()) {
-            summary = "Search: " + transactionSearchText + " · " + summary;
+            summary = "Search: " + transactionSearchText + " | " + summary;
         }
         TextView view = text(summary, 12, COLOR_MUTED, false);
         styleLabel(view);
@@ -1326,7 +1399,14 @@ public class MainActivity extends Activity {
         }
 
         if (!hasAccounts) {
-            panel.addView(text("No accounts added yet.", 12, COLOR_MUTED, false));
+            panel.addView(emptyStateText("No accounts added yet. Add one to start tracking balances."));
+            addSpaceTo(panel, 8);
+            panel.addView(actionButton("Add Account", new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showAccountDialog();
+                }
+            }));
         }
 
         addSpaceTo(panel, 5);
@@ -1475,7 +1555,7 @@ public class MainActivity extends Activity {
         panel.addView(heading);
         addSpaceTo(panel, 8);
         addDashboardInsightRow(panel, "This week net",
-                signedMoney(weekNet) + " · " + db.getTransactionCount(weekStart, weekEnd) + " txns",
+                signedMoney(weekNet) + " | " + db.getTransactionCount(weekStart, weekEnd) + " txns",
                 weekNet >= 0 ? COLOR_GREEN : COLOR_RED);
         addDashboardInsightRow(panel, "This month",
                 ExpenseDbHelper.formatMoney(monthExpense) + " spent",
@@ -1591,25 +1671,42 @@ public class MainActivity extends Activity {
         content.addView(sectionTitle("Bank Accounts"));
         LinearLayout panel = panel();
         Cursor cursor = db.getAccountsWithBalances();
+        long total = 0;
         try {
             if (!cursor.moveToFirst()) {
-                panel.addView(text("Add your first bank account to start tracking.", 14, Color.rgb(102, 112, 133), false));
+                panel.addView(emptyStateText("Add your first bank account to start tracking balances."));
+                addSpaceTo(panel, 8);
+                panel.addView(actionButton("Add Account", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        showAccountDialog();
+                    }
+                }));
             } else {
                 do {
                     final long id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
                     String name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
                     long balance = cursor.getLong(cursor.getColumnIndexOrThrow("balance"));
-                    TextView account = text(name + "  " + ExpenseDbHelper.formatMoney(balance), 16, Color.rgb(16, 24, 40), true);
-                    styleTransactionAmount(account);
-                    account.setPadding(0, dp(8), 0, dp(8));
-                    account.setOnClickListener(new View.OnClickListener() {
+                    total += balance;
+                    LinearLayout account = managementRow(
+                            name,
+                            ExpenseDbHelper.formatMoney(balance),
+                            balance >= 0 ? COLOR_NAVY_TEXT : COLOR_RED,
+                            new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
                             showEditAccountDialog(id);
                         }
                     });
                     panel.addView(account);
+                    addSpaceTo(panel, 6);
                 } while (cursor.moveToNext());
+                View divider = new View(this);
+                divider.setBackgroundColor(COLOR_BORDER);
+                panel.addView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
+                addSpaceTo(panel, 8);
+                panel.addView(compactMetricRow("Total balance", ExpenseDbHelper.formatMoney(total),
+                        total >= 0 ? COLOR_GREEN : COLOR_RED));
             }
         } finally {
             cursor.close();
@@ -1623,22 +1720,31 @@ public class MainActivity extends Activity {
         Cursor cursor = db.getAllCategories();
         try {
             if (!cursor.moveToFirst()) {
-                panel.addView(text("No categories yet.", 14, Color.rgb(102, 112, 133), false));
+                panel.addView(emptyStateText("No categories yet. Add labels for income and expenses."));
+                addSpaceTo(panel, 8);
+                panel.addView(actionButton("Add Category", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        showCategoryDialog();
+                    }
+                }));
             } else {
                 do {
                     final long id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
                     String name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
                     final String type = cursor.getString(cursor.getColumnIndexOrThrow("type"));
-                    TextView category = text(name + "  (" + type + ")", 16, Color.rgb(16, 24, 40), false);
-                    styleTransactionName(category);
-                    category.setPadding(0, dp(8), 0, dp(8));
-                    category.setOnClickListener(new View.OnClickListener() {
+                    LinearLayout category = managementRow(
+                            name,
+                            titleCase(type),
+                            ExpenseDbHelper.TYPE_EXPENSE.equals(type) ? COLOR_RED : COLOR_GREEN,
+                            new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
                             showEditCategoryDialog(id);
                         }
                     });
                     panel.addView(category);
+                    addSpaceTo(panel, 6);
                 } while (cursor.moveToNext());
             }
         } finally {
@@ -1648,45 +1754,148 @@ public class MainActivity extends Activity {
     }
 
     private void renderBorrowLendRecords() {
-        content.addView(sectionTitle("Borrowed / Lended"));
-        LinearLayout panel = panel();
         Cursor cursor = db.getBorrowLendRecords();
+        LinearLayout openPanel = panel();
+        openPanel.addView(sectionTitle("Open"));
+        LinearLayout closedPanel = panel();
+        closedPanel.addView(sectionTitle("Completed"));
+        boolean anyOpen = false;
+        boolean anyClosed = false;
         try {
             if (!cursor.moveToFirst()) {
-                panel.addView(text("No borrowed or lent records yet.", 14, Color.rgb(102, 112, 133), false));
+                openPanel.addView(emptyStateText("No borrowed or lent records yet. Use Add Borrowed or Add Lent to create one."));
             } else {
                 do {
                     final long id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
                     String name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
-                    String type = cursor.getString(cursor.getColumnIndexOrThrow("type"));
+                    final String type = cursor.getString(cursor.getColumnIndexOrThrow("type"));
                     long amount = cursor.getLong(cursor.getColumnIndexOrThrow("amount"));
                     int completed = cursor.getInt(cursor.getColumnIndexOrThrow("is_completed"));
                     String account = cursor.getString(cursor.getColumnIndexOrThrow("account"));
-                    String status = completed == 1
-                            ? (ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "Repaid" : "Gained")
-                            : "Open";
-                    String action = completed == 1
-                            ? ""
-                            : "\nTap to mark " + (ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "repaid" : "gained");
+                    boolean isOpen = completed == 0;
 
-                    TextView item = text(
-                            titleCase(type) + "  " + ExpenseDbHelper.formatMoney(amount) + "  " + status + "\n" +
-                                    name + " | " + account + action,
-                            15,
-                            completed == 1 ? Color.rgb(71, 84, 103) :
-                                    (ExpenseDbHelper.TYPE_BORROWED.equals(type) ? COLOR_RED : COLOR_GREEN),
-                            true);
-                    item.setPadding(0, dp(8), 0, dp(8));
-                    if (completed == 0) {
-                        item.setOnClickListener(new View.OnClickListener() {
+                    // Card layout
+                    LinearLayout card = new LinearLayout(this);
+                    card.setOrientation(LinearLayout.VERTICAL);
+                    card.setPadding(dp(12), dp(10), dp(12), dp(10));
+                    card.setBackground(tileBackground(Color.WHITE, COLOR_BORDER));
+                    applyCardElevation(card);
+
+                    // Title row: badge + name + amount
+                    LinearLayout titleRow = horizontalRow();
+                    titleRow.setGravity(Gravity.CENTER_VERTICAL);
+                    int badgeColor = ExpenseDbHelper.TYPE_BORROWED.equals(type) ? COLOR_RED : COLOR_GREEN;
+                    TextView badge = text(displayBorrowLendType(type), 11, Color.WHITE, true);
+                    badge.setPadding(dp(6), dp(2), dp(6), dp(2));
+                    badge.setBackground(tileBackground(badgeColor, Color.TRANSPARENT));
+                    LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    badgeParams.setMargins(0, 0, dp(8), 0);
+                    titleRow.addView(badge, badgeParams);
+                    TextView nameView = text(name, 14, COLOR_NAVY_TEXT, true);
+                    titleRow.addView(nameView, weightParams());
+                    TextView amountView = text(ExpenseDbHelper.formatMoney(amount), 14,
+                            isOpen ? badgeColor : COLOR_MUTED, true);
+                    amountView.setGravity(Gravity.RIGHT);
+                    titleRow.addView(amountView);
+                    card.addView(titleRow);
+
+                    // Account + status
+                    addSpaceTo(card, 4);
+                    String statusLabel = isOpen ? "Open" : (ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "Repaid" : "Received");
+                    TextView detail = text(account + "  \u00b7  " + statusLabel, 12, COLOR_MUTED, false);
+                    card.addView(detail);
+
+                    // Explicit action button for open records
+                    if (isOpen) {
+                        addSpaceTo(card, 8);
+                        String actionLabel = ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "Mark as Repaid" : "Mark as Received";
+                        Button markDone = actionButton(actionLabel, new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
                                 confirmCompleteBorrowLend(id, type);
                             }
                         });
+                        card.addView(markDone, new LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                        openPanel.addView(card);
+                        addSpaceTo(openPanel, 8);
+                        anyOpen = true;
+                    } else {
+                        closedPanel.addView(card);
+                        addSpaceTo(closedPanel, 8);
+                        anyClosed = true;
                     }
-                    panel.addView(item);
                 } while (cursor.moveToNext());
+            }
+        } finally {
+            cursor.close();
+        }
+        if (!anyOpen) {
+            openPanel.addView(emptyStateText("No open records."));
+        }
+        content.addView(openPanel);
+        addSpace(14);
+        if (anyClosed) {
+            content.addView(closedPanel);
+        }
+    }
+
+    private void renderNonReturnedSpendingRecords() {
+        content.addView(sectionTitle("Unreturned Spending"));
+        LinearLayout panel = panel();
+        Cursor cursor = db.getNonReturnedSpendingRecords();
+        long total = 0;
+        try {
+            if (!cursor.moveToFirst()) {
+                panel.addView(emptyStateText("No unreturned spending yet. Add one to track money you expect back."));
+            } else {
+                do {
+                    final long id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
+                    long amount = cursor.getLong(cursor.getColumnIndexOrThrow("amount"));
+                    long createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"));
+                    String account = cursor.getString(cursor.getColumnIndexOrThrow("account"));
+                    int transactionColumn = cursor.getColumnIndexOrThrow("transaction_id");
+                    boolean accountAdjusted = !cursor.isNull(transactionColumn);
+                    total += amount;
+
+                    LinearLayout card = new LinearLayout(this);
+                    card.setOrientation(LinearLayout.VERTICAL);
+                    card.setPadding(dp(12), dp(10), dp(12), dp(10));
+                    card.setBackground(tileBackground(Color.WHITE, COLOR_BORDER));
+                    applyCardElevation(card);
+
+                    LinearLayout titleRow = horizontalRow();
+                    titleRow.setGravity(Gravity.CENTER_VERTICAL);
+                    TextView nameView = text(name, 14, accountAdjusted ? COLOR_RED : COLOR_NAVY_TEXT, true);
+                    titleRow.addView(nameView, weightParams());
+                    TextView amountView = text(ExpenseDbHelper.formatMoney(amount), 14, COLOR_RED, true);
+                    amountView.setGravity(Gravity.RIGHT);
+                    titleRow.addView(amountView);
+                    card.addView(titleRow);
+
+                    addSpaceTo(card, 4);
+                    String detail = transactionDateText(createdAt) +
+                            (accountAdjusted ? "  \u00b7  " + account + " reduced" : "  \u00b7  record only");
+                    card.addView(text(detail, 12, COLOR_MUTED, false));
+
+                    addSpaceTo(card, 8);
+                    Button deleteBtn = actionButton("Delete", new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            confirmDeleteNonReturnedSpending(id);
+                        }
+                    });
+                    deleteBtn.setBackground(tileBackground(COLOR_RED, Color.TRANSPARENT));
+                    deleteBtn.setTextColor(Color.WHITE);
+                    card.addView(deleteBtn, new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                    panel.addView(card);
+                    addSpaceTo(panel, 8);
+                } while (cursor.moveToNext());
+                panel.addView(compactMetricRow("Total unreturned", ExpenseDbHelper.formatMoney(total), COLOR_RED));
             }
         } finally {
             cursor.close();
@@ -1710,8 +1919,26 @@ public class MainActivity extends Activity {
                 100);
         try {
             if (!cursor.moveToFirst()) {
-                panel.addView(text("No transactions match these filters.", 14, Color.rgb(102, 112, 133), false));
+                panel.addView(emptyStateText("No transactions match these filters."));
+                addSpaceTo(panel, 8);
+                panel.addView(actionButton("Clear Filters", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        transactionFilterType = "all";
+                        transactionFilterTimeline = "all";
+                        transactionSortOrder = "newest";
+                        transactionFilterAccountId = -1;
+                        transactionFilterCategoryId = -1;
+                        transactionSearchText = "";
+                        renderAppShell();
+                    }
+                }));
             } else {
+                int count = cursor.getCount();
+                TextView countLabel = text(count + (count == 1 ? " transaction" : " transactions"),
+                        11, COLOR_MUTED, false);
+                countLabel.setPadding(0, 0, 0, dp(6));
+                panel.addView(countLabel);
                 do {
                     final long id = cursor.getLong(cursor.getColumnIndexOrThrow("id"));
                     String name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
@@ -1932,6 +2159,74 @@ public class MainActivity extends Activity {
         styleDialogWindow(dialog);
     }
 
+    private void showNonReturnedSpendingDialog() {
+        final List<Option> accountOptions = loadAccounts();
+        LinearLayout form = transactionDialogForm("Unreturned spending",
+                "Add money that will not be returned.");
+        final Spinner names = spinner(new String[]{"Arivazhagan", "Mano", "Surya", "Kailainathan"});
+        final EditText amount = editText("Amount");
+        amount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        final Spinner accounts = optionSpinner(accountOptions);
+        final TextView accountLabel = text("BANK ACCOUNT", 11, COLOR_MUTED, true);
+        styleLabel(accountLabel);
+        accountLabel.setAllCaps(true);
+        accountLabel.setPadding(0, dp(4), 0, dp(4));
+
+        addDialogField(form, "Name", names);
+        addDialogField(form, "Amount", amount);
+        form.addView(accountLabel);
+        form.addView(accounts, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        addSpaceTo(form, 7);
+
+        android.widget.AdapterView.OnItemSelectedListener listener =
+                new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        boolean needsAccount = "Arivazhagan".equals(names.getSelectedItem().toString());
+                        accountLabel.setVisibility(needsAccount ? View.VISIBLE : View.GONE);
+                        accounts.setVisibility(needsAccount ? View.VISIBLE : View.GONE);
+                    }
+
+                    @Override
+                    public void onNothingSelected(android.widget.AdapterView<?> parent) {
+                    }
+                };
+        names.setOnItemSelectedListener(listener);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(form)
+                .setPositiveButton("Save", null)
+                .setNegativeButton("Cancel", null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            try {
+                String selectedName = names.getSelectedItem().toString();
+                long accountId = -1;
+                if ("Arivazhagan".equals(selectedName)) {
+                    if (accountOptions.isEmpty()) {
+                        toast("Add a bank account first.");
+                        dialog.dismiss();
+                        showAccountDialog();
+                        return;
+                    }
+                    accountId = ((Option) accounts.getSelectedItem()).id;
+                }
+                db.addNonReturnedSpending(
+                        selectedName,
+                        ExpenseDbHelper.parseMoney(required(amount, "Amount")),
+                        accountId);
+                dialog.dismiss();
+                refreshAfterDataChange();
+            } catch (Exception ex) {
+                toast(ex.getMessage());
+            }
+        }));
+        showDialog(dialog);
+        styleDialogWindow(dialog);
+    }
+
     private void showAddTransactionDialog() {
         showTransactionEditorDialog(-1, ExpenseDbHelper.TYPE_EXPENSE, "", 0, -1, -1, System.currentTimeMillis());
     }
@@ -2127,12 +2422,25 @@ public class MainActivity extends Activity {
     }
 
     private void confirmCompleteBorrowLend(final long id, String type) {
-        String action = ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "repaid" : "gained";
+        String action = ExpenseDbHelper.TYPE_BORROWED.equals(type) ? "repaid" : "received";
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Mark as " + action + "?")
                 .setMessage("This will complete the borrow/lend record and update the account balance.")
                 .setPositiveButton(titleCase(action), (ignoredDialog, which) -> {
                     db.completeBorrowLend(id);
+                    refreshAfterDataChange();
+                })
+                .setNegativeButton("Cancel", null)
+                .create();
+        showDialog(dialog);
+    }
+
+    private void confirmDeleteNonReturnedSpending(final long id) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Delete unreturned spending?")
+                .setMessage("If this reduced an account, the linked expense transaction will also be removed.")
+                .setPositiveButton("Delete", (ignoredDialog, which) -> {
+                    db.deleteNonReturnedSpending(id);
                     refreshAfterDataChange();
                 })
                 .setNegativeButton("Cancel", null)
@@ -2483,10 +2791,35 @@ public class MainActivity extends Activity {
         return metric;
     }
 
+    private LinearLayout summaryMetricCard(String label, String value, int valueColor) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
+        card.setBackground(tileBackground(COLOR_METRIC_TINT, Color.TRANSPARENT));
+
+        TextView labelView = text(label, 12, COLOR_MUTED, false);
+        styleLabel(labelView);
+        TextView valueView = text(value, 16, valueColor, true);
+        styleCardAmount(valueView);
+        valueView.setPadding(0, dp(4), 0, 0);
+
+        card.addView(labelView);
+        card.addView(valueView);
+        return card;
+    }
+
+
     private LinearLayout emptyPanel(String message) {
         LinearLayout panel = panel();
-        panel.addView(text(message, 12, COLOR_MUTED, false));
+        panel.addView(emptyStateText(message));
         return panel;
+    }
+
+    private TextView emptyStateText(String message) {
+        TextView view = text(message, 13, COLOR_MUTED, false);
+        styleLabel(view);
+        view.setPadding(0, dp(4), 0, dp(4));
+        return view;
     }
 
     private void renderDailySpendingTrend(LinearLayout parent, long startInclusive, long endExclusive) {
@@ -3128,6 +3461,31 @@ public class MainActivity extends Activity {
         return row;
     }
 
+    private LinearLayout managementRow(String title, String detail, int detailColor, View.OnClickListener listener) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(9), dp(8), dp(9));
+        row.setBackground(tileBackground(COLOR_FIELD, COLOR_BORDER));
+
+        LinearLayout textBlock = new LinearLayout(this);
+        textBlock.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = text(title, 14, COLOR_NAVY_TEXT, true);
+        styleTransactionName(titleView);
+        TextView detailView = text(detail, 12, detailColor, true);
+        styleLabel(detailView);
+        detailView.setPadding(0, dp(2), 0, 0);
+        textBlock.addView(titleView);
+        textBlock.addView(detailView);
+        row.addView(textBlock, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView arrow = text(">", 14, COLOR_MUTED, true);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        row.setOnClickListener(listener);
+        return row;
+    }
+
     private LinearLayout progressBar(long value, long max, int color) {
         int filledWeight = value <= 0 || max <= 0 ? 0 : Math.max(4, Math.round((value * 100f) / max));
         return new AnimatedProgressBar(
@@ -3253,17 +3611,40 @@ public class MainActivity extends Activity {
         return tile;
     }
 
-    private ImageView imageToolTile(int imageRes, String description, View.OnClickListener listener) {
-        ImageView tile = new ImageView(this);
-        tile.setImageResource(imageRes);
-        tile.setAdjustViewBounds(false);
-        tile.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    private LinearLayout imageToolTile(int imageRes, String description, View.OnClickListener listener) {
+        LinearLayout tile = new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER);
         tile.setBackground(tileBackground(Color.WHITE, COLOR_BORDER));
-        tile.setPadding(dp(10), dp(10), dp(10), dp(10));
+        tile.setPadding(dp(8), dp(8), dp(8), dp(7));
         tile.setMinimumHeight(dp(112));
         tile.setContentDescription(description);
         tile.setOnClickListener(listener);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(imageRes);
+        icon.setAdjustViewBounds(false);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        tile.addView(icon, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+
+        TextView label = text(description, 11, COLOR_NAVY_TEXT, true);
+        styleBottomNavLabel(label);
+        label.setGravity(Gravity.CENTER);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        tile.addView(label, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         return tile;
+    }
+
+    private TextView homePagerHint(String hint) {
+        TextView view = text(hint, 12, COLOR_MUTED, false);
+        styleLabel(view);
+        view.setGravity(Gravity.CENTER);
+        view.setPadding(0, dp(6), 0, 0);
+        return view;
     }
 
     private ImageView disabledToolTile(int imageRes) {
@@ -3512,6 +3893,13 @@ public class MainActivity extends Activity {
             return "";
         }
         return value.substring(0, 1).toUpperCase(Locale.US) + value.substring(1);
+    }
+
+    private String displayBorrowLendType(String type) {
+        if (ExpenseDbHelper.TYPE_LENDED.equals(type)) {
+            return "Lent";
+        }
+        return titleCase(type);
     }
 
     private void setSpinnerSelection(Spinner spinner, String value) {
@@ -3772,676 +4160,6 @@ public class MainActivity extends Activity {
             this.income = income;
             this.expense = expense;
             this.balance = balance;
-        }
-    }
-
-    private static class PieSlice {
-        final String label;
-        final long amount;
-        final int color;
-
-        PieSlice(String label, long amount, int color) {
-            this.label = label;
-            this.amount = amount;
-            this.color = color;
-        }
-    }
-
-    private abstract static class AnimatedChartView extends View
-            implements ViewTreeObserver.OnScrollChangedListener {
-        protected float animationProgress;
-        private ValueAnimator entranceAnimator;
-        private final Rect visibleBounds = new Rect();
-        private ViewTreeObserver registeredObserver;
-        private boolean animationStarted;
-
-        AnimatedChartView(Context context) {
-            super(context);
-        }
-
-        @Override
-        protected void onAttachedToWindow() {
-            super.onAttachedToWindow();
-            if (animationStarted) {
-                return;
-            }
-            registeredObserver = getViewTreeObserver();
-            registeredObserver.addOnScrollChangedListener(this);
-            post(this::startAnimationIfVisible);
-        }
-
-        @Override
-        public void onScrollChanged() {
-            startAnimationIfVisible();
-        }
-
-        private void startAnimationIfVisible() {
-            if (animationStarted || getHeight() <= 0 || !getGlobalVisibleRect(visibleBounds)) {
-                return;
-            }
-            if (visibleBounds.height() < getHeight() * 0.3f
-                    || visibleBounds.width() < getWidth() * 0.3f) {
-                return;
-            }
-
-            animationStarted = true;
-            removeScrollListener();
-            entranceAnimator = ValueAnimator.ofFloat(0f, 1f);
-            entranceAnimator.setDuration(animationDuration());
-            entranceAnimator.setInterpolator(new DecelerateInterpolator());
-            entranceAnimator.addUpdateListener(animation -> {
-                animationProgress = (float) animation.getAnimatedValue();
-                invalidate();
-            });
-            entranceAnimator.start();
-        }
-
-        protected long animationDuration() {
-            return 700L;
-        }
-
-        @Override
-        protected void onDetachedFromWindow() {
-            removeScrollListener();
-            if (entranceAnimator != null) {
-                entranceAnimator.cancel();
-                entranceAnimator = null;
-            }
-            super.onDetachedFromWindow();
-        }
-
-        private void removeScrollListener() {
-            if (registeredObserver != null && registeredObserver.isAlive()) {
-                registeredObserver.removeOnScrollChangedListener(this);
-            }
-            registeredObserver = null;
-        }
-    }
-
-    private static class PieChartView extends AnimatedChartView {
-        private final ArrayList<PieSlice> slices;
-        private final long total;
-        private final Paint slicePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint holePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint centerAmountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF bounds = new RectF();
-        private int selectedIndex = -1;
-
-        PieChartView(Context context, ArrayList<PieSlice> slices, long total) {
-            super(context);
-            this.slices = slices;
-            this.total = total;
-            holePaint.setColor(Color.WHITE);
-            centerAmountPaint.setColor(COLOR_NAVY);
-            centerAmountPaint.setTextAlign(Paint.Align.CENTER);
-            centerAmountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-            centerAmountPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            setWillNotDraw(false);
-        }
-
-        @Override
-        protected long animationDuration() {
-            return 1200L;
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                int index = touchedSliceIndex(event.getX(), event.getY());
-                if (index >= 0) {
-                    selectedIndex = index;
-                    performClick();
-                    invalidate();
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean performClick() {
-            super.performClick();
-            return true;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            if (total <= 0 || slices.isEmpty()) {
-                return;
-            }
-
-            float size = Math.min(getWidth(), getHeight()) - 8f;
-            float left = (getWidth() - size) / 2f;
-            float top = (getHeight() - size) / 2f;
-            bounds.set(left, top, left + size, top + size);
-
-            float startAngle = -90f;
-            float remainingSweep = 360f * animationProgress;
-            for (int index = 0; index < slices.size(); index++) {
-                PieSlice slice = slices.get(index);
-                float sweep = (slice.amount * 360f) / total;
-                slicePaint.setColor(index == selectedIndex ? darkenChartColor(slice.color) : slice.color);
-                float visibleSweep = Math.min(sweep, Math.max(0f, remainingSweep));
-                if (visibleSweep > 0f) {
-                    canvas.drawArc(bounds, startAngle, visibleSweep, true, slicePaint);
-                }
-                startAngle += sweep;
-                remainingSweep -= sweep;
-            }
-
-            float holeRadius = size * 0.28f;
-            canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, holeRadius, holePaint);
-            if (selectedIndex >= 0 && selectedIndex < slices.size()) {
-                PieSlice selected = slices.get(selectedIndex);
-                float centerX = getWidth() / 2f;
-                float centerY = getHeight() / 2f;
-                Paint.FontMetrics metrics = centerAmountPaint.getFontMetrics();
-                canvas.drawText(ExpenseDbHelper.formatMoney(selected.amount),
-                        centerX, centerY - (metrics.ascent + metrics.descent) / 2f, centerAmountPaint);
-            }
-        }
-
-        private int touchedSliceIndex(float x, float y) {
-            if (total <= 0 || slices.isEmpty()) {
-                return -1;
-            }
-            float size = Math.min(getWidth(), getHeight()) - 8f;
-            float centerX = getWidth() / 2f;
-            float centerY = getHeight() / 2f;
-            double distance = Math.hypot(x - centerX, y - centerY);
-            if (distance < size * 0.28f || distance > size / 2f) {
-                return -1;
-            }
-
-            double angle = Math.toDegrees(Math.atan2(y - centerY, x - centerX)) + 90.0;
-            if (angle < 0) {
-                angle += 360.0;
-            }
-            float cumulative = 0f;
-            for (int index = 0; index < slices.size(); index++) {
-                cumulative += (slices.get(index).amount * 360f) / total;
-                if (angle <= cumulative) {
-                    return index;
-                }
-            }
-            return slices.size() - 1;
-        }
-    }
-
-    private static int darkenChartColor(int color) {
-        return Color.rgb(
-                Math.round(Color.red(color) * 0.65f),
-                Math.round(Color.green(color) * 0.65f),
-                Math.round(Color.blue(color) * 0.65f));
-    }
-
-    private static long niceAxisMax(long maxValue) {
-        if (maxValue <= 0) {
-            return 10000L;
-        }
-        double rawStep = maxValue / 4.0;
-        double magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
-        double normalized = rawStep / magnitude;
-        double factor;
-        if (normalized <= 1) {
-            factor = 1;
-        } else if (normalized <= 2) {
-            factor = 2;
-        } else if (normalized <= 5) {
-            factor = 5;
-        } else {
-            factor = 10;
-        }
-        return Math.max(4L, (long) Math.ceil(factor * magnitude) * 4L);
-    }
-
-    private static String formatAxisTick(long valueInCents) {
-        double rupees = valueInCents / 100.0;
-        if (rupees >= 10000000) {
-            return compactAxisValue(rupees / 10000000.0) + "Cr";
-        }
-        if (rupees >= 100000) {
-            return compactAxisValue(rupees / 100000.0) + "L";
-        }
-        if (rupees >= 1000) {
-            return compactAxisValue(rupees / 1000.0) + "K";
-        }
-        return String.valueOf(Math.round(rupees));
-    }
-
-    private static String compactAxisValue(double value) {
-        if (Math.abs(value - Math.rint(value)) < 0.05) {
-            return String.valueOf((long) Math.rint(value));
-        }
-        return String.format(Locale.US, "%.1f", value);
-    }
-
-    private static void drawYAxis(Canvas canvas, Paint axisPaint, Paint gridPaint,
-                                  float left, float right, float top, float chartHeight,
-                                  long axisMax, float density) {
-        for (int tick = 0; tick <= 4; tick++) {
-            long tickValue = axisMax * (4 - tick) / 4;
-            float y = top + chartHeight * tick / 4f;
-            canvas.drawText(formatAxisTick(tickValue), left - 8f * density, y + 3f * density, axisPaint);
-            canvas.drawLine(left, y, right, y, gridPaint);
-        }
-    }
-
-    private static float chartBarRadius(float barWidth, float density) {
-        return Math.min(4f * density, barWidth * 0.22f);
-    }
-
-    private static class SpendingTrendChartView extends AnimatedChartView {
-        private final long[] expenses;
-        private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint selectedBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint axisPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF barBounds = new RectF();
-        private int selectedIndex = -1;
-
-        SpendingTrendChartView(Context context, long[] expenses) {
-            super(context);
-            this.expenses = expenses;
-            barPaint.setColor(COLOR_RED);
-            selectedBarPaint.setColor(COLOR_NAVY);
-            gridPaint.setColor(COLOR_BORDER);
-            gridPaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{8f, 8f}, 0f));
-            textPaint.setColor(COLOR_MUTED);
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            amountPaint.setColor(COLOR_NAVY);
-            amountPaint.setTextAlign(Paint.Align.CENTER);
-            amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-            amountPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            axisPaint.setColor(COLOR_MUTED);
-            axisPaint.setTextAlign(Paint.Align.RIGHT);
-            axisPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8f);
-            setWillNotDraw(false);
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                int index = touchedBarIndex(event.getX(), event.getY());
-                if (index >= 0) {
-                    selectedIndex = index;
-                    performClick();
-                    invalidate();
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean performClick() {
-            super.performClick();
-            return true;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            if (expenses == null || expenses.length == 0) {
-                return;
-            }
-
-            long max = 0;
-            for (long value : expenses) {
-                max = Math.max(max, value);
-            }
-            long axisMax = niceAxisMax(max);
-
-            float density = getResources().getDisplayMetrics().density;
-            float width = getWidth();
-            float height = getHeight();
-            float leftAxis = 48f * density;
-            float rightPadding = 6f * density;
-            float top = 16f * density;
-            float bottom = height - 22f * density;
-            float chartHeight = Math.max(1f, bottom - top);
-            float chartWidth = Math.max(1f, width - leftAxis - rightPadding);
-            float slot = chartWidth / expenses.length;
-            float barWidth = Math.max(2f * density, slot * 0.58f);
-
-            drawYAxis(canvas, axisPaint, gridPaint, leftAxis, width - rightPadding, top, chartHeight, axisMax, density);
-
-            for (int index = 0; index < expenses.length; index++) {
-                float centerX = leftAxis + slot * index + slot / 2f;
-                float fullBarHeight = expenses[index] <= 0
-                        ? 0
-                        : Math.max(3f * density, chartHeight * expenses[index] / axisMax);
-                float barHeight = fullBarHeight * animationProgress;
-                barBounds.set(centerX - barWidth / 2f, bottom - barHeight, centerX + barWidth / 2f, bottom);
-                float radius = chartBarRadius(barWidth, density);
-                canvas.drawRoundRect(barBounds, radius, radius,
-                        index == selectedIndex ? selectedBarPaint : barPaint);
-                if (index == selectedIndex) {
-                    float amountY = Math.max(top + 11f * density, bottom - barHeight - 6f * density);
-                    canvas.drawText(ExpenseDbHelper.formatMoney(expenses[index]),
-                            centerX, amountY, amountPaint);
-                }
-                if (index == 0 || index == expenses.length - 1
-                        || ((index + 1) % 5 == 0 && index < expenses.length - 2)) {
-                    canvas.drawText(String.valueOf(index + 1), centerX, height - 6f * density, textPaint);
-                }
-            }
-        }
-
-        private int touchedBarIndex(float x, float y) {
-            if (expenses == null || expenses.length == 0) {
-                return -1;
-            }
-            float density = getResources().getDisplayMetrics().density;
-            float leftAxis = 48f * density;
-            float right = getWidth() - 6f * density;
-            float top = 16f * density;
-            float bottom = getHeight() - 22f * density;
-            if (x < leftAxis || x > right || y < top || y > bottom) {
-                return -1;
-            }
-            float slot = (right - leftAxis) / expenses.length;
-            int index = Math.min(expenses.length - 1, (int) ((x - leftAxis) / slot));
-            return expenses[index] > 0 ? index : -1;
-        }
-    }
-
-    private static class CashflowBarChartView extends AnimatedChartView {
-        private final long[] income;
-        private final long[] expense;
-        private final Paint incomePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint expensePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint selectedBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint axisPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF barBounds = new RectF();
-        private int selectedIndex = -1;
-        private int selectedSeries = -1;
-
-        CashflowBarChartView(Context context, long[] income, long[] expense) {
-            super(context);
-            this.income = income;
-            this.expense = expense;
-            incomePaint.setColor(COLOR_GREEN);
-            expensePaint.setColor(COLOR_RED);
-            selectedBarPaint.setColor(COLOR_NAVY);
-            gridPaint.setColor(COLOR_BORDER);
-            gridPaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{8f, 8f}, 0f));
-            textPaint.setColor(COLOR_MUTED);
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            amountPaint.setColor(COLOR_NAVY);
-            amountPaint.setTextAlign(Paint.Align.CENTER);
-            amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-            amountPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            axisPaint.setColor(COLOR_MUTED);
-            axisPaint.setTextAlign(Paint.Align.RIGHT);
-            axisPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8f);
-            setWillNotDraw(false);
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                int code = touchedBarCode(event.getX(), event.getY());
-                if (code >= 0) {
-                    selectedIndex = code / 2;
-                    selectedSeries = code % 2;
-                    performClick();
-                    invalidate();
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean performClick() {
-            super.performClick();
-            return true;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            if (income == null || expense == null || income.length == 0) {
-                return;
-            }
-
-            long max = 0;
-            for (int index = 0; index < income.length; index++) {
-                max = Math.max(max, income[index]);
-                max = Math.max(max, expense[index]);
-            }
-            long axisMax = niceAxisMax(max);
-
-            float density = getResources().getDisplayMetrics().density;
-            float width = getWidth();
-            float height = getHeight();
-            float leftAxis = 48f * density;
-            float rightPadding = 6f * density;
-            float top = 16f * density;
-            float bottom = height - 22f * density;
-            float chartHeight = Math.max(1f, bottom - top);
-            float chartWidth = Math.max(1f, width - leftAxis - rightPadding);
-            float slot = chartWidth / income.length;
-            float barWidth = Math.max(2f * density, slot * 0.24f);
-
-            drawYAxis(canvas, axisPaint, gridPaint, leftAxis, width - rightPadding, top, chartHeight, axisMax, density);
-
-            for (int index = 0; index < income.length; index++) {
-                float centerX = leftAxis + slot * index + slot / 2f;
-                float incomeX = centerX - barWidth * 0.7f;
-                float expenseX = centerX + barWidth * 0.7f;
-                drawBar(canvas, incomeX, bottom, chartHeight, barWidth, income[index], axisMax,
-                        index == selectedIndex && selectedSeries == 0 ? selectedBarPaint : incomePaint);
-                drawBar(canvas, expenseX, bottom, chartHeight, barWidth, expense[index], axisMax,
-                        index == selectedIndex && selectedSeries == 1 ? selectedBarPaint : expensePaint);
-                if (index == selectedIndex) {
-                    long value = selectedSeries == 0 ? income[index] : expense[index];
-                    float selectedX = selectedSeries == 0 ? incomeX : expenseX;
-                    float fullBarHeight = value <= 0
-                            ? 0
-                            : Math.max(3f * density, chartHeight * value / axisMax);
-                    float barHeight = fullBarHeight * animationProgress;
-                    float amountY = Math.max(top + 11f * density, bottom - barHeight - 6f * density);
-                    canvas.drawText(ExpenseDbHelper.formatMoney(value), selectedX, amountY, amountPaint);
-                }
-                if (income.length <= 7 || index == 0 || index == income.length - 1
-                        || ((index + 1) % 5 == 0 && index < income.length - 2)) {
-                    canvas.drawText(String.valueOf(index + 1), centerX, height - 6f * density, textPaint);
-                }
-            }
-        }
-
-        private void drawBar(Canvas canvas, float centerX, float bottom, float chartHeight, float barWidth,
-                             long value, long max, Paint paint) {
-            float density = getResources().getDisplayMetrics().density;
-            float fullBarHeight = value <= 0 ? 0 : Math.max(3f * density, chartHeight * value / max);
-            float barHeight = fullBarHeight * animationProgress;
-            barBounds.set(centerX - barWidth / 2f, bottom - barHeight, centerX + barWidth / 2f, bottom);
-            float radius = chartBarRadius(barWidth, density);
-            canvas.drawRoundRect(barBounds, radius, radius, paint);
-        }
-
-        private int touchedBarCode(float x, float y) {
-            if (income == null || expense == null || income.length == 0) {
-                return -1;
-            }
-            float density = getResources().getDisplayMetrics().density;
-            float leftAxis = 48f * density;
-            float right = getWidth() - 6f * density;
-            float top = 16f * density;
-            float bottom = getHeight() - 22f * density;
-            if (x < leftAxis || x > right || y < top || y > bottom) {
-                return -1;
-            }
-
-            float slot = (right - leftAxis) / income.length;
-            int index = Math.min(income.length - 1, (int) ((x - leftAxis) / slot));
-            float centerX = leftAxis + slot * index + slot / 2f;
-            int series = x < centerX ? 0 : 1;
-            if ((series == 0 ? income[index] : expense[index]) <= 0) {
-                series = 1 - series;
-            }
-            return (series == 0 ? income[index] : expense[index]) > 0 ? index * 2 + series : -1;
-        }
-    }
-
-    private static class WeeklyBarChartView extends AnimatedChartView {
-        private final long[] values;
-        private final String[] labels;
-        private final int accentColor;
-        private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint selectedBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint axisPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF barBounds = new RectF();
-        private int selectedIndex = -1;
-
-        WeeklyBarChartView(Context context, long[] values, String[] labels, int accentColor) {
-            super(context);
-            this.values = values;
-            this.labels = labels;
-            this.accentColor = accentColor;
-            barPaint.setColor(accentColor);
-            selectedBarPaint.setColor(COLOR_NAVY);
-            gridPaint.setColor(Color.rgb(224, 228, 236));
-            gridPaint.setStrokeWidth(1f);
-            gridPaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{8f, 8f}, 0f));
-            labelPaint.setColor(Color.rgb(91, 107, 123));
-            labelPaint.setTextAlign(Paint.Align.CENTER);
-            labelPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            amountPaint.setColor(COLOR_NAVY);
-            amountPaint.setTextAlign(Paint.Align.CENTER);
-            amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-            amountPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 10f);
-            axisPaint.setColor(Color.rgb(91, 107, 123));
-            axisPaint.setTextAlign(Paint.Align.RIGHT);
-            axisPaint.setTextSize(context.getResources().getDisplayMetrics().scaledDensity * 8f);
-            setWillNotDraw(false);
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                int index = touchedBarIndex(event.getX(), event.getY());
-                if (index >= 0 && index < values.length) {
-                    selectedIndex = index;
-                    performClick();
-                    invalidate();
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean performClick() {
-            super.performClick();
-            return true;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            if (values == null || values.length == 0) {
-                return;
-            }
-
-            long max = 0;
-            for (long value : values) {
-                max = Math.max(max, value);
-            }
-            long axisMax = niceAxisMax(max);
-
-            float width = getWidth();
-            float height = getHeight();
-            float density = getResources().getDisplayMetrics().density;
-            float leftAxis = 46f * density;
-            float rightPadding = 6f * density;
-            float top = 16f * density;
-            float labelArea = 28f * density;
-            float bottomPadding = 8f * density;
-            float chartHeight = Math.max(1f, height - labelArea - top - bottomPadding);
-            float chartWidth = Math.max(1f, width - leftAxis - rightPadding);
-            float slot = chartWidth / values.length;
-            float barWidth = Math.min(slot * 0.56f, 36f * density);
-            float radius = chartBarRadius(barWidth, density);
-
-            drawYAxis(canvas, axisPaint, gridPaint, leftAxis, width - rightPadding,
-                    top, chartHeight, axisMax, density);
-
-            for (int index = 0; index < values.length; index++) {
-                float centerX = leftAxis + slot * index + slot / 2f;
-                float trackLeft = centerX - barWidth / 2f;
-                float trackBottom = top + chartHeight;
-
-                float fullHeight = Math.max(values[index] <= 0 ? 0f : 8f,
-                        chartHeight * values[index] / axisMax);
-                float fillHeight = fullHeight * animationProgress;
-                float fillTop = trackBottom - fillHeight;
-                barBounds.set(trackLeft, fillTop, trackLeft + barWidth, trackBottom);
-                canvas.drawRoundRect(barBounds, radius, radius,
-                        index == selectedIndex ? selectedBarPaint : barPaint);
-
-                if (index == selectedIndex) {
-                    float amountY = Math.max(top + 11f * density, fillTop - 6f * density);
-                    canvas.drawText(ExpenseDbHelper.formatMoney(values[index]), centerX, amountY, amountPaint);
-                }
-
-                if (labels != null && index < labels.length) {
-                    canvas.drawText(labels[index], centerX, height - 13f * density, labelPaint);
-                }
-            }
-        }
-
-        private int touchedBarIndex(float x, float y) {
-            if (values == null || values.length == 0) {
-                return -1;
-            }
-
-            long max = 0;
-            for (long value : values) {
-                max = Math.max(max, value);
-            }
-            if (max <= 0) {
-                return -1;
-            }
-            long axisMax = niceAxisMax(max);
-
-            float density = getResources().getDisplayMetrics().density;
-            float width = getWidth();
-            float height = getHeight();
-            float leftAxis = 46f * density;
-            float rightPadding = 6f * density;
-            float top = 16f * density;
-            float labelArea = 28f * density;
-            float bottomPadding = 8f * density;
-            float chartHeight = Math.max(1f, height - labelArea - top - bottomPadding);
-            float chartWidth = Math.max(1f, width - leftAxis - rightPadding);
-            float slot = chartWidth / values.length;
-            float barWidth = Math.min(slot * 0.56f, 36f * density);
-            float trackBottom = top + chartHeight;
-
-            for (int index = 0; index < values.length; index++) {
-                float centerX = leftAxis + slot * index + slot / 2f;
-                float trackLeft = centerX - barWidth / 2f;
-                float fillHeight = Math.max(values[index] <= 0 ? 0f : 8f, chartHeight * values[index] / axisMax);
-                float fillTop = trackBottom - fillHeight;
-                if (x >= trackLeft && x <= trackLeft + barWidth && y >= fillTop && y <= trackBottom) {
-                    return index;
-                }
-            }
-            return -1;
         }
     }
 

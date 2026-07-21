@@ -9,7 +9,10 @@ import android.content.Intent;
 import android.os.Build;
 import android.widget.RemoteViews;
 
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 public class ExpenseWidgetProvider extends AppWidgetProvider {
     @Override
@@ -40,6 +43,8 @@ public class ExpenseWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_expenses);
         views.setTextViewText(R.id.widgetTodaySpent, ExpenseDbHelper.formatMoney(today));
         views.setTextViewText(R.id.widgetMonthSpent, ExpenseDbHelper.formatMoney(month));
+        String updatedTime = new SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date());
+        views.setTextViewText(R.id.widgetLastUpdated, "Updated " + updatedTime);
 
         Intent intent = new Intent(context, MainActivity.class);
         intent.setAction(MainActivity.ACTION_ADD_EXPENSE);

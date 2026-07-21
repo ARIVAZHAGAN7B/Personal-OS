@@ -733,7 +733,8 @@ public class UsageTrackerActivity extends Activity {
         LinearLayout panel = ui.panel();
         panel.addView(ui.sectionTitle("Daily Limit"));
         if (dailyLimit <= 0) {
-            panel.addView(ui.text("No daily limit set.", 13, Color.rgb(71, 84, 103), false));
+            panel.addView(ui.text("No daily limit set. Choose a preset or set a custom limit.",
+                    13, Color.rgb(71, 84, 103), false));
         } else {
             boolean overLimit = usedToday > dailyLimit;
             panel.addView(ui.text(formatDuration(usedToday) + " of " + formatDuration(dailyLimit) + " today",
@@ -747,8 +748,67 @@ public class UsageTrackerActivity extends Activity {
         row.addView(limitButton("2h", 120L * 60000L), ui.weightParams());
         panel.addView(row);
         ui.addSpace(panel, 8);
-        panel.addView(limitButton("Clear Limit", 0));
+        row = ui.horizontalRow();
+        row.addView(limitButton("4h", 240L * 60000L), ui.weightParams());
+        row.addView(limitButton("Clear", 0), ui.weightParams());
+        Button custom = ui.actionButton("Custom...", v -> showCustomLimitDialog());
+        custom.setTextColor(COLOR_NAVY_TEXT);
+        custom.setBackground(ui.tileBackground(Color.WHITE, COLOR_BORDER));
+        row.addView(custom, ui.weightParams());
+        panel.addView(row);
         content.addView(panel);
+    }
+
+    private void showCustomLimitDialog() {
+        android.widget.EditText hoursInput = new android.widget.EditText(this);
+        hoursInput.setHint("Hours (e.g. 3)");
+        hoursInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        hoursInput.setTextSize(14);
+        hoursInput.setTextColor(COLOR_NAVY_TEXT);
+        hoursInput.setBackground(ui.tileBackground(Color.rgb(250, 252, 254), COLOR_BORDER));
+        hoursInput.setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(8));
+        hoursInput.setMinHeight(ui.dp(44));
+
+        android.widget.EditText minutesInput = new android.widget.EditText(this);
+        minutesInput.setHint("Minutes (e.g. 30)");
+        minutesInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        minutesInput.setTextSize(14);
+        minutesInput.setTextColor(COLOR_NAVY_TEXT);
+        minutesInput.setBackground(ui.tileBackground(Color.rgb(250, 252, 254), COLOR_BORDER));
+        minutesInput.setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(8));
+        minutesInput.setMinHeight(ui.dp(44));
+
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(ui.dp(16), ui.dp(8), ui.dp(16), ui.dp(4));
+        form.addView(ui.text("Hours", 11, COLOR_MUTED, true));
+        form.addView(hoursInput, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        ui.addSpace(form, 8);
+        form.addView(ui.text("Minutes", 11, COLOR_MUTED, true));
+        form.addView(minutesInput, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Set Custom Daily Limit")
+                .setView(form)
+                .setPositiveButton("Set limit", (dialog, which) -> {
+                    String h = hoursInput.getText().toString().trim();
+                    String m = minutesInput.getText().toString().trim();
+                    long hours = h.isEmpty() ? 0 : Long.parseLong(h);
+                    long minutes = m.isEmpty() ? 0 : Long.parseLong(m);
+                    long limitMs = (hours * 60L + minutes) * 60000L;
+                    if (limitMs <= 0) {
+                        Toast.makeText(this, "Please enter a valid limit.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    db.setDailyLimit(selectedPackageName, limitMs);
+                    Toast.makeText(this, "Daily limit set to " + formatDuration(limitMs),
+                            Toast.LENGTH_SHORT).show();
+                    render();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private Button limitButton(String label, final long limitMs) {
@@ -920,7 +980,7 @@ public class UsageTrackerActivity extends Activity {
 
     private void renderFrequentOpenWarnings(UsageRange range) {
         LinearLayout panel = ui.panel();
-        panel.addView(ui.sectionTitle("Open Frequency"));
+        panel.addView(ui.sectionTitle("App Open Frequency"));
         Cursor cursor = db.getFrequentOpenApps(range.start, range.end, 5);
         boolean any = false;
         try {
@@ -933,10 +993,12 @@ public class UsageTrackerActivity extends Activity {
                 String appName = loadAppLabel(packageName, cursor.getString(cursor.getColumnIndexOrThrow("app_name")));
                 long launches = cursor.getLong(cursor.getColumnIndexOrThrow("launches"));
                 long totalMs = cursor.getLong(cursor.getColumnIndexOrThrow("total_ms"));
-                panel.addView(ui.text(appName + " was opened " + launches + " times",
-                        14, Color.rgb(180, 35, 24), true));
-                panel.addView(ui.text("Total time: " + formatDuration(totalMs),
-                        13, Color.rgb(71, 84, 103), false));
+                // Only highlight red for suspiciously high open counts
+                int nameColor = launches >= 15 ? COLOR_RED : COLOR_NAVY_TEXT;
+                panel.addView(ui.text(appName + " \u2022 opened " + launches + " times",
+                        14, nameColor, launches >= 15));
+                panel.addView(ui.text("Total screen time: " + formatDuration(totalMs),
+                        13, COLOR_MUTED, false));
                 ui.addSpace(panel, 8);
             }
         } finally {

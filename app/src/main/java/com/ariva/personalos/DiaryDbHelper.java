@@ -133,4 +133,31 @@ final class DiaryDbHelper extends SQLiteOpenHelper {
         getWritableDatabase().delete(
                 "diary_entries", "entry_date = ?", new String[]{String.valueOf(entryDate)});
     }
+
+    /** Returns the entry_date of the previous (older) diary entry, or 0 if none. */
+    long getPreviousEntryDate(long entryDate) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT entry_date FROM diary_entries WHERE entry_date < ? " +
+                        "ORDER BY entry_date DESC LIMIT 1",
+                new String[]{String.valueOf(entryDate)});
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    /** Returns the entry_date of the next (newer) diary entry, or 0 if none. */
+    long getNextEntryDate(long entryDate) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT entry_date FROM diary_entries WHERE entry_date > ? " +
+                        "ORDER BY entry_date ASC LIMIT 1",
+                new String[]{String.valueOf(entryDate)});
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
 }
+
